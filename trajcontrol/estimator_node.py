@@ -79,7 +79,7 @@ class EstimatorNode(Node):
             pitch = np.arcsin(dir[2])
             roll = pitch
             q = euler2quat(yaw, roll, pitch, 'rzyx')
-        Z = np.array([shape[N-1].position.x, shape[N-1].position.y, shape[N-1].position.z], q[0], q[1], q[2], q[3]])
+        Z = np.array([shape[N-1].position.x, shape[N-1].position.y, shape[N-1].position.z, q[0], q[1], q[2], q[3]])
         ##########################################
         self.get_logger().info('Z: %s in %s frame' % (np.array2string(Z), msg.header.frame_id))
 
