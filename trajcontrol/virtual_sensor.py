@@ -1,5 +1,6 @@
 import rclpy
 import numpy as np
+import ament_index_python 
 
 from rclpy.node import Node
 from geometry_msgs.msg import PoseArray
@@ -13,7 +14,11 @@ class VirtualSensor(Node):
         self.publisher_shape = self.create_publisher(PoseArray, '/needle/state/shape', 10)
         timer_period = 0.5  # seconds
         self.timer = self.create_timer(timer_period, self.timer_callback)
-        trial_data = loadmat('/home/mariana/Dropbox/Pesquisa/ColabHarvard/bwh_ws/files/virtual_26.mat', mat_dtype=True)
+
+        package_path = str(ament_index_python.get_package_share_path('trajcontrol'))
+        file_path = package_path + '/../../../../files/virtual_26.mat'
+        trial_data = loadmat(file_path, mat_dtype=True)
+        
         self.sensor = trial_data['sensor'][0]
         self.i=0
 
