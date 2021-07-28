@@ -8,7 +8,6 @@ from rclpy.node import Node
 from sensor_msgs.msg import Image
 from transforms3d.euler import euler2quat
 
-
 class EstimatorNode(Node):
 
     def __init__(self):

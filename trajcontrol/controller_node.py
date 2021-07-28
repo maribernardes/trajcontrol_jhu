@@ -2,10 +2,11 @@ import rclpy
 import numpy as np
 
 from rclpy.node import Node
+from rclpy.action import ActionClient
 from geometry_msgs.msg import PoseStamped
 from cv_bridge import CvBridge
 from sensor_msgs.msg import Image
-
+from stage_control_interfaces.action import MoveStage
 
 
 class ControllerNode(Node):
@@ -21,13 +22,23 @@ class ControllerNode(Node):
         self.subscription_UI = self.create_subscription(PoseStamped, '/subject/state/target', self.target_callback, 10)
         self.subscription_UI  # prevent unused variable warning
 
-        #Published topics
-        #Our node publishes desired output for both stage and user in the same topic
-        self.publisher_control = self.create_publisher(PoseStamped, '/stage/cmd/pose', 10)
-        timer_period = 0.5  # seconds
-        self.timer = self.create_timer(timer_period, self.timer_control_callback)
+        #Action client 
+        #Check the correct action name and msg type from John's code
+        self._action_client = ActionClient(self, MoveStage, '/move_stage')
 
         self.i=0
+
+
+    def send_goal(self, x, z):
+        goal_msg = MoveStage.Goal()
+        goal_msg.x = x
+        goal_msg.z = z
+        goal_msg.eps = 0.0
+
+        self.get_logger().info('Action stage - Control u: x=%f, z=%f' % (goal_msg.x, goal_msg.z))
+        self._action_client.wait_for_server()
+        return self._action_client.send_goal_async(goal_msg)
+
 
     def jacobian_callback(self, msg):
         J = CvBridge().imgmsg_to_cv2(msg)
@@ -61,7 +72,10 @@ def main(args=None):
 
     controller_node = ControllerNode()
 
+    controller_node.send_goal(1.5, 2.1)
+
     rclpy.spin(controller_node)
+
 
     # Destroy the node explicitly
     # (optional - otherwise it will be done automatically
