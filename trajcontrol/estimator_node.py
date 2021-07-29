@@ -14,9 +14,6 @@ class EstimatorNode(Node):
         super().__init__('estimator_node')
 
         #Topics from Stage node
-        self.subscription_stage1 = self.create_subscription(PoseStamped, '/stage/state/pose', self.stage_callback, 10)
-        self.subscription_stage1  # prevent unused variable warning
-
         self.subscription_stage2 = self.create_subscription(PoseStamped, '/stage/state/needle_pose', self.needle_pose_callback, 10)
         self.subscription_stage2  # prevent unused variable warning
 
@@ -79,6 +76,7 @@ class EstimatorNode(Node):
             roll = pitch
             q = euler2quat(yaw, roll, pitch, 'rzyx')
         Z = np.array([shape[N-1].position.x, shape[N-1].position.y, shape[N-1].position.z, q[0], q[1], q[2], q[3]])
+        
         ##########################################
         self.get_logger().info('Z: %s in %s frame' % (np.array2string(Z), msg.header.frame_id))
 
