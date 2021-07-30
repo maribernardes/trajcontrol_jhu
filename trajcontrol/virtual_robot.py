@@ -45,10 +45,7 @@ class VirtualRobot(Node):
 
         self.i = 0
 
-    ##################################
-    ###### Publishers callbacks ######
-    ##################################
-
+    # Publish current stage position
     def timer_stage_callback(self):
         msg = PoseStamped()
         msg.header.stamp = self.get_clock().now().to_msg()
@@ -62,12 +59,13 @@ class VirtualRobot(Node):
         self.get_logger().info('Publish - Stage position: x=%f z=%f in %s frame'  % (msg.pose.position.x, msg.pose.position.z, msg.header.frame_id))
         self.i += 1
 
+    # Publish current needle_pose
     def timer_needlepose_callback(self):
         msg = PoseStamped()
         msg.header.stamp = self.get_clock().now().to_msg()
         msg.header.frame_id = "stage"
 
-        #Get next Z vector from matlab file and publish
+        # Populate message with Z data from matlab file
         Z = self.needle_pose[self.i]
         msg.pose.position.x = float(Z[0])
         msg.pose.position.y = float(Z[1])
@@ -81,6 +79,7 @@ class VirtualRobot(Node):
             msg.pose.orientation.y, msg.pose.orientation.z, msg.pose.orientation.w, msg.header.frame_id))
         self.i += 1
 
+    # Publish current needle info
     def timer_needle_callback(self):
         msg = PoseStamped()
         msg.header.stamp = self.get_clock().now().to_msg()
@@ -97,28 +96,25 @@ class VirtualRobot(Node):
         self.i += 1
 
 
-    ##################################
-    ##### Action server callbacks ####
-    ##################################
-
+    # Destroy de action server
     def destroy(self):
         self._action_server.destroy()
         super().destroy_node()
 
+    # Accept or reject a client request to begin an action
+    # This server allows multiple goals in parallel
     def goal_callback(self, goal_request):
-        """Accept or reject a client request to begin an action."""
-        # This server allows multiple goals in parallel
         self.get_logger().info('Received goal request')
         return GoalResponse.ACCEPT
 
+    # Accept or reject a client request to cancel an action
     def cancel_callback(self, goal_handle):
-        """Accept or reject a client request to cancel an action."""
         self.get_logger().info('Received cancel request')
         return CancelResponse.ACCEPT
 
-
+    # Execute a goal
+    # This is a dummy action: the "goal" is to increment x from 0 to 4
     async def execute_callback(self, goal_handle):
-        """Execute a goal."""
         self.get_logger().info('Executing goal...')
 
         feedback_msg = MoveStage.Feedback()

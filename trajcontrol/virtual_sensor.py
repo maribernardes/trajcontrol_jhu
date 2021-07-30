@@ -23,12 +23,14 @@ class VirtualSensor(Node):
         self.sensor = trial_data['sensor'][0]
         self.i=0
 
+    # Publish current needle shape (PoseArray of 3D points)
     def timer_callback(self):
         
         msg = PoseArray()
         msg.header.stamp = self.get_clock().now().to_msg()
         msg.header.frame_id = "needle"
 
+        # Populate message with X data from matlab file
         if (self.i < self.sensor.size):
             X = self.sensor[self.i]
             j = 0

@@ -32,17 +32,15 @@ class EstimatorNode(Node):
         
         self.i = 0
 
-    ##################################
-    ##### Subscribers callbacks ######
-    ##################################        
-
+    # Get current needle_pose from Stage node
+    # X = [x_stage, y_needle_depth, z_stage, q_needle_roll]
     def needle_pose_callback(self, msg):
-        # Get inputs X = [x_stage, y_needle_depth, z_stage, q_needle_roll]
         needle = msg.pose
         self.get_logger().info('Listening Stage - Needle pose: x,=%f, y=%f, z=%f, q=[%f, %f, %f, %f] in %s frame'  % (needle.position.x, \
             needle.position.y, needle.position.z, needle.orientation.x, needle.orientation.y, needle.orientation.z, \
                 needle.orientation.w, msg.header.frame_id))
 
+    # Get current entry point from UI node
     def entry_point_callback(self, msg):
         ##########################################
         # TODO: Define transform from stage to needle frame
@@ -52,8 +50,8 @@ class EstimatorNode(Node):
         self.get_logger().info('Listening UI - Skin entry point: x=%f, y=%f, z=%f in %s frame'  % (entry_point.x, entry_point.y, \
             entry_point.z, msg.header.frame_id))
 
+    # Get current needle shape from FBG sensor measurements
     def needle_shape_callback(self, msg):
-        # Get needle shape (FBG sensor measurements)
         shape = msg.poses
         self.get_logger().info('Listening Sensor - Needle shape: %s in %s frame' % (shape, msg.header.frame_id))
         
@@ -74,10 +72,7 @@ class EstimatorNode(Node):
 
         self.get_logger().info('Z: %s in %s frame' % (np.array2string(Z), msg.header.frame_id))
 
-    ##################################
-    ####### Publisher callback #######
-    ##################################
-
+    # Publish current Jacobian matrix
     def timer_jacobian_callback(self):
         ##########################################
         # TODO: Calculate Z estimate (publish => optional)

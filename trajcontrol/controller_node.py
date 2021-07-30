@@ -30,9 +30,8 @@ class ControllerNode(Node):
 
         self.i=0
 
-    ##################################
-    ##### Subscribers callbacks ######
-    ##################################
+
+    # Get current Jacobian matrix from Estimator node
     def jacobian_callback(self, msg):
         J = CvBridge().imgmsg_to_cv2(msg)
         self.get_logger().info('Listening estimator - Jacobian: %s' % np.array2string(J))
@@ -44,14 +43,12 @@ class ControllerNode(Node):
         ##################################
         self.send_cmd(1.2, 3.4)
 
+    # Get current target point from UI node
     def target_callback(self, msg):
         target = msg.pose.position
         self.get_logger().info('Listening UI - Target: x=%f, y=%f, z=%f' % (target.x, target.y, target.z))
 
-    ##################################
-    ##### Action client callbacks ####
-    ##################################
-
+    # Send MoveStage action to Stage node (Goal)
     def send_cmd(self, x, z):
 
         goal_msg = MoveStage.Goal()
@@ -62,16 +59,15 @@ class ControllerNode(Node):
         self.get_logger().info('Waiting for action server...')
         self.action_client.wait_for_server()
         
-        self.get_logger().info('Action stage - Sending goal request... Control u: x=%f, z=%f' % (goal_msg.x, goal_msg.z))
-        
-        #self.action_client.send_goal_async(goal_msg)
+        self.get_logger().info('Action stage - Sending goal request... Control u: x=%f, z=%f' % (goal_msg.x, goal_msg.z))      
         self.send_goal_future = self.action_client.send_goal_async(goal_msg, feedback_callback=self.feedback_callback)
         self.send_goal_future.add_done_callback(self.goal_response_callback)
 
-
+    # Get MoveStage action progress messages (Feedback)
     def feedback_callback(self, feedback):
         self.get_logger().info('Received feedback: {0}'.format(feedback.feedback.x))
 
+    # Check if MoveStage action was accepted 
     def goal_response_callback(self, future):
         goal_handle = future.result()
         if not goal_handle.accepted:
@@ -83,6 +79,7 @@ class ControllerNode(Node):
         self._get_result_future = goal_handle.get_result_async()
         self._get_result_future.add_done_callback(self.get_result_callback)
 
+    # Get MoveStage action finish message (Result)
     def get_result_callback(self, future):
         result = future.result().result
         status = future.result().status
@@ -96,8 +93,6 @@ def main(args=None):
     rclpy.init(args=args)
 
     controller_node = ControllerNode()
-
-    #controller_node.send_goal(1.5, 2.1)
 
     rclpy.spin(controller_node)
 
