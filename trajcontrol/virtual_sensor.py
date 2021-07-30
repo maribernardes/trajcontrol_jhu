@@ -15,6 +15,7 @@ class VirtualSensor(Node):
         timer_period = 0.5  # seconds
         self.timer = self.create_timer(timer_period, self.timer_callback)
 
+        #Load data from matlab file
         package_path = str(ament_index_python.get_package_share_path('trajcontrol'))
         file_path = package_path + '/../../../../files/virtual_26.mat'
         trial_data = loadmat(file_path, mat_dtype=True)

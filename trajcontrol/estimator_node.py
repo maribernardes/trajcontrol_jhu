@@ -32,41 +32,36 @@ class EstimatorNode(Node):
         
         self.i = 0
 
-
-    def stage_callback(self, msg):
-        ##########################################
-        # Get inputs Xpartial = [x_stage, z_stage]
-        ##########################################
-        stage = msg.pose.position
-        #self.get_logger().info('Listening Stage - Stage position: x=%f, z=%f in %s frame'  % (stage.x, stage.z, msg.header.frame_id))
+    ##################################
+    ##### Subscribers callbacks ######
+    ##################################        
 
     def needle_pose_callback(self, msg):
-        ##########################################
-        # Get inputs Xpartial = [y_needle_depth, y_q]
-        ##########################################
+        # Get inputs X = [x_stage, y_needle_depth, z_stage, q_needle_roll]
         needle = msg.pose
-        #self.get_logger().info('Listening Stage - Needle pose: y=%f, q=%s in %s frame'  % (needle.position.y, needle.orientation, msg.header.frame_id))
+        self.get_logger().info('Listening Stage - Needle pose: x,=%f, y=%f, z=%f, q=[%f, %f, %f, %f] in %s frame'  % (needle.position.x, \
+            needle.position.y, needle.position.z, needle.orientation.x, needle.orientation.y, needle.orientation.z, \
+                needle.orientation.w, msg.header.frame_id))
 
     def entry_point_callback(self, msg):
         ##########################################
-        # Define transform from stage to needle frame
+        # TODO: Define transform from stage to needle frame
         ##########################################
         entry_point = msg.pose.position
-        #self.get_logger().info('Listening UI - Skin entry point: x=%f, y=%f, z=%f in %s frame'  % (entry_point.x, entry_point.y, \
-        #    entry_point.z, msg.header.frame_id))
+
+        self.get_logger().info('Listening UI - Skin entry point: x=%f, y=%f, z=%f in %s frame'  % (entry_point.x, entry_point.y, \
+            entry_point.z, msg.header.frame_id))
 
     def needle_shape_callback(self, msg):
-        ##########################################
         # Get needle shape (FBG sensor measurements)
         shape = msg.poses
-        #self.get_logger().info('Listening Sensor - Needle shape: %s in %s frame' % (shape, msg.header.frame_id))
+        self.get_logger().info('Listening Sensor - Needle shape: %s in %s frame' % (shape, msg.header.frame_id))
         
         # From shape, get measured Z = [x_tip, y_tip, z_tip, q_tip] (Obs: for q, roll=pitch)
         N = len(shape)
         self.get_logger().info('N: %f ' % (N))
         if (N==1):
             q = [1, 0, 0, 0]
-            #Quaternion(x=q[1], y=q[0], z=q[0], w=q[0])
         else:
             tip = np.array([shape[N-1].position.x, shape[N-1].position.y, shape[N-1].position.z])
             ptip = np.array([shape[N-2].position.x, shape[N-2].position.y, shape[N-2].position.z])
@@ -76,19 +71,23 @@ class EstimatorNode(Node):
             roll = pitch
             q = euler2quat(yaw, roll, pitch, 'rzyx')
         Z = np.array([shape[N-1].position.x, shape[N-1].position.y, shape[N-1].position.z, q[0], q[1], q[2], q[3]])
-        
-        ##########################################
+
         self.get_logger().info('Z: %s in %s frame' % (np.array2string(Z), msg.header.frame_id))
+
+    ##################################
+    ####### Publisher callback #######
+    ##################################
 
     def timer_jacobian_callback(self):
         ##########################################
-        # Calculate Z estimate (publish => optional)
-        # Calculate Jacobian J
-        J = np.ones((7,7))
+        # TODO: Calculate Z estimate (publish => optional)
+        # TODO: Calculate Jacobian J
         ##########################################
+        J = np.ones((7,7))
+
         msg = CvBridge().cv2_to_imgmsg(J)
         self.publisher_jacobian.publish(msg)
-        #self.get_logger().info('Publish - Jacobian: %s' %  np.array2string(J))
+        self.get_logger().info('Publish - Jacobian: %s' %  np.array2string(J))
         self.i += 1
 
 def main(args=None):
