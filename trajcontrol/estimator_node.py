@@ -30,15 +30,23 @@ class EstimatorNode(Node):
         timer_period = 0.5  # seconds
         self.timer = self.create_timer(timer_period, self.timer_jacobian_callback)
         
-        self.i = 0
+        self.X = np.zeros((7,1))
+        self.deltaX = np.zeros((7,1))
 
-    # Get current needle_pose from Stage node
-    # X = [x_stage, y_needle_depth, z_stage, q_needle_roll]
-    def needle_pose_callback(self, msg):
-        needle = msg.pose
-        self.get_logger().info('Listening Stage - Needle pose: x,=%f, y=%f, z=%f, q=[%f, %f, %f, %f] in %s frame'  % (needle.position.x, \
-            needle.position.y, needle.position.z, needle.orientation.x, needle.orientation.y, needle.orientation.z, \
-                needle.orientation.w, msg.header.frame_id))
+        self.Z_hat = np.zeros((7,1))
+        self.deltaZ = np.zeros((7,1))
+
+        # Initialize Jacobian with estimated values from previous experiments
+        # (Alternative: initialize with values from first two sets of sensor and stage data)
+        self.J = np.array([(-0.3482, 0.1089, 0.0893,-0.1670, 0.1967, 0.0913, 0.1103),
+                  ( 0.3594, 0.1332,-0.2593, 0.1975, 0.7322, 0.7989, 0.0794),
+                  (-0.1714, 0.0723, 0.1597, 0.8766, 0.0610,-0.4968, 0.2415),
+                  ( 0.0003, 0.0000,-0.0005, 0.0079, 0.0007,-0.0025, 0.0021),
+                  (-0.0004,-0.0001, 0.0006,-0.0077,-0.0006, 0.0025,-0.0020),
+                  (-0.0017,-0.0006, 0.0009, 0.0040, 0.0083, 0.0053,-0.0007),
+                  (0, 0, 0, 0, 0, 0, 0)])
+
+        self.i = 0
 
     # Get current entry point from UI node
     def entry_point_callback(self, msg):
@@ -50,14 +58,41 @@ class EstimatorNode(Node):
         self.get_logger().info('Listening UI - Skin entry point: x=%f, y=%f, z=%f in %s frame'  % (entry_point.x, entry_point.y, \
             entry_point.z, msg.header.frame_id))
 
-    # Get current needle shape from FBG sensor measurements
-    def needle_shape_callback(self, msg):
-        shape = msg.poses
-        self.get_logger().info('Listening Sensor - Needle shape: %s in %s frame' % (shape, msg.header.frame_id))
+
+    # Get current needle_pose from Stage node
+    # Perform estimator input X ("Prediction")
+    # X = [x_stage, y_needle_depth, z_stage, q_needle_roll]
+    def needle_pose_callback(self, msg):
+        ##########################################
+        # TODO: Verify timestamp to match Z
+        ##########################################
+        needle = msg.pose
         
-        # From shape, get measured Z = [x_tip, y_tip, z_tip, q_tip] (Obs: for q, roll=pitch)
+        X = np.array([[needle.position.x, needle.position.y, needle.position.z, needle.orientation.x, \
+            needle.orientation.y, needle.orientation.z, needle.orientation.w]]).T
+
+        self.deltaX = X - self.X
+        self.X = X
+
+        deltaZ_hat = np.matmul(self.J, self.deltaX)
+        self.Z_hat = deltaZ_hat + self.Z_hat
+
+        # Normalize unit quaternion
+        self.Z_hat[3:7] = self.Z_hat[3:7]/np.linalg.norm(self.Z_hat[3:7])
+
+        self.get_logger().info('Z_hat pred: %s in %s frame' % (self.Z_hat.T, msg.header.frame_id))
+
+    # Get current needle shape from FBG sensor measurements
+    # Perform estimator "correction"
+    # Z = [x_tip, y_tip, z_tip, q_tip] (Obs: for q, roll=pitch)
+    def needle_shape_callback(self, msg):
+        ##########################################
+        # TODO: Verify timestamp to match X
+        ##########################################
+        shape = msg.poses
+        
+        # From shape, get measured Z
         N = len(shape)
-        self.get_logger().info('N: %f ' % (N))
         if (N==1):
             q = [1, 0, 0, 0]
         else:
@@ -68,22 +103,31 @@ class EstimatorNode(Node):
             pitch = np.arcsin(dir[2])
             roll = pitch
             q = euler2quat(yaw, roll, pitch, 'rzyx')
-        Z = np.array([shape[N-1].position.x, shape[N-1].position.y, shape[N-1].position.z, q[0], q[1], q[2], q[3]])
 
-        self.get_logger().info('Z: %s in %s frame' % (np.array2string(Z), msg.header.frame_id))
+        Z = np.array([[shape[N-1].position.x, shape[N-1].position.y, shape[N-1].position.z, \
+            q[0], q[1], q[2], q[3]]]).T
+
+        self.Z_hat = Z
+
+        self.get_logger().info('Z_hat corr: %s in %s frame' % (self.Z_hat.T, msg.header.frame_id))
 
     # Publish current Jacobian matrix
+    # Update estimate Z_hat
+    # Calculate Jacobian from current estimate Z_hat
     def timer_jacobian_callback(self):
-        ##########################################
-        # TODO: Calculate Z estimate (publish => optional)
-        # TODO: Calculate Jacobian J
-        ##########################################
-        J = np.ones((7,7))
 
-        msg = CvBridge().cv2_to_imgmsg(J)
+        ##########################################
+        # TODO: Update Jacobian
+        ##########################################
+
+        msg = CvBridge().cv2_to_imgmsg(self.J)
         self.publisher_jacobian.publish(msg)
-        self.get_logger().info('Publish - Jacobian: %s' %  np.array2string(J))
+        self.get_logger().info('Publish - Jacobian: %s' %  self.J)
         self.i += 1
+
+
+    def normalize_unit_quaternion(q):
+        return q/np.norm(q); 
 
 def main(args=None):
     rclpy.init(args=args)
