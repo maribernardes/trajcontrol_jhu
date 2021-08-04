@@ -1,9 +1,10 @@
 import numpy as np
 import rclpy
+import message_filters
 
 from cv_bridge import CvBridge
 from cv_bridge.core import CvBridge
-from geometry_msgs.msg import PoseArray, PoseStamped, Quaternion
+from geometry_msgs.msg import PoseArray, PoseStamped
 from rclpy.node import Node
 from sensor_msgs.msg import Image
 from transforms3d.euler import euler2quat
@@ -13,17 +14,23 @@ class EstimatorNode(Node):
     def __init__(self):
         super().__init__('estimator_node')
 
-        #Topics from Stage node
-        self.subscription_stage2 = self.create_subscription(PoseStamped, '/stage/state/needle_pose', self.needle_pose_callback, 10)
-        self.subscription_stage2  # prevent unused variable warning
-
         #Topics from UI node
         self.subscription_UI = self.create_subscription(PoseStamped, '/subject/state/skin_entry', self.entry_point_callback, 10)
         self.subscription_UI  # prevent unused variable warning
 
+        #Topics from Stage node
+        #self.subscription_stage = self.create_subscription(PoseStamped, '/stage/state/needle_pose', self.needle_pose_callback, 10)
+        #self.subscription_stage  # prevent unused variable warning
+
         #Topics from Sensor node
-        self.subscription_sensor = self.create_subscription(PoseArray, '/needle/state/shape', self.needle_shape_callback, 10)
-        self.subscription_sensor  # prevent unused variable warning
+        #self.subscription_sensor = self.create_subscription(PoseArray, '/needle/state/shape', self.needle_shape_callback, 10)
+        #self.subscription_sensor  # prevent unused variable warning
+
+        #Syncronized topics (Stage and Sensor nodes)
+        self.subscription_stage = message_filters.Subscriber(self, PoseStamped, '/stage/state/needle_pose')
+        self.subscription_sensor = message_filters.Subscriber(self, PoseArray, '/needle/state/shape')
+        self.timeSync = message_filters.ApproximateTimeSynchronizer([self.subscription_stage, self.subscription_sensor], 10, 0.1)
+        self.timeSync.registerCallback(self.sync_callback)
 
         #Published topics
         self.publisher_jacobian = self.create_publisher(Image, '/needle/state/jacobian', 10)
@@ -58,38 +65,26 @@ class EstimatorNode(Node):
         self.get_logger().info('Listening UI - Skin entry point: x=%f, y=%f, z=%f in %s frame'  % (entry_point.x, entry_point.y, \
             entry_point.z, msg.header.frame_id))
 
-
+    
     # Get current needle_pose from Stage node
     # Perform estimator input X ("Prediction")
     # X = [x_stage, y_needle_depth, z_stage, q_needle_roll]
-    def needle_pose_callback(self, msg):
-        ##########################################
-        # TODO: Verify timestamp to match Z
-        ##########################################
-        needle = msg.pose
-        
-        X = np.array([[needle.position.x, needle.position.y, needle.position.z, needle.orientation.x, \
-            needle.orientation.y, needle.orientation.z, needle.orientation.w]]).T
-
-        self.deltaX = X - self.X
-        self.X = X
-
-        deltaZ_hat = np.matmul(self.J, self.deltaX)
-        self.Z_hat = deltaZ_hat + self.Z_hat
-
-        # Normalize unit quaternion
-        self.Z_hat[3:7] = self.Z_hat[3:7]/np.linalg.norm(self.Z_hat[3:7])
-
-        self.get_logger().info('Z_hat pred: %s in %s frame' % (self.Z_hat.T, msg.header.frame_id))
-
     # Get current needle shape from FBG sensor measurements
     # Perform estimator "correction"
     # Z = [x_tip, y_tip, z_tip, q_tip] (Obs: for q, roll=pitch)
-    def needle_shape_callback(self, msg):
-        ##########################################
-        # TODO: Verify timestamp to match X
-        ##########################################
-        shape = msg.poses
+    def sync_callback(self, msg_stage, msg_sensor):
+
+        # Get needle pose from PoseStamped
+        needle = msg_stage.pose
+
+        # From needle, get input X
+        X = np.array([[needle.position.x, needle.position.y, needle.position.z, needle.orientation.x, \
+            needle.orientation.y, needle.orientation.z, needle.orientation.w]]).T
+
+        self.get_logger().info('X: %s in %s frame' % (X.T, msg_stage.header.frame_id))
+
+        # Get needle shape from PoseArray
+        shape = msg_sensor.poses
         
         # From shape, get measured Z
         N = len(shape)
@@ -107,9 +102,21 @@ class EstimatorNode(Node):
         Z = np.array([[shape[N-1].position.x, shape[N-1].position.y, shape[N-1].position.z, \
             q[0], q[1], q[2], q[3]]]).T
 
-        self.Z_hat = Z
+        self.get_logger().info('Z: %s in %s frame' % (Z.T, msg_sensor.header.frame_id))
 
-        self.get_logger().info('Z_hat corr: %s in %s frame' % (self.Z_hat.T, msg.header.frame_id))
+        ##########################################
+        # TODO: Update Jacobian and Estimate (ongoing)
+        ##########################################
+        
+        #self.deltaX = X - self.X
+        #self.X = X
+        #deltaZ_hat = np.matmul(self.J, self.deltaX)
+        #self.Z_hat = deltaZ_hat + self.Z_hat
+
+        ## Normalize unit quaternion
+        #self.Z_hat[3:7] = self.Z_hat[3:7]/np.linalg.norm(self.Z_hat[3:7])
+        #self.Z_hat = Z
+        #self.get_logger().info('Z_hat corr: %s in %s frame' % (self.Z_hat.T, msg_sensor.header.frame_id))
 
     # Publish current Jacobian matrix
     # Update estimate Z_hat
