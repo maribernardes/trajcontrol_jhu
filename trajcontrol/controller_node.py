@@ -34,14 +34,15 @@ class ControllerNode(Node):
     # Get current Jacobian matrix from Estimator node
     def jacobian_callback(self, msg):
         J = CvBridge().imgmsg_to_cv2(msg)
-        self.get_logger().info('Listening estimator - Jacobian: %s' % np.array2string(J))
+        self.get_logger().info('Estimator: Jacobian received') # % np.array2string(J)
 
         ###################################
         #TODO: Calculate control output u = [x, y, z] 
         # x and z for stage
         # y for user input (insertion depth)
         ##################################
-        self.send_cmd(1.2, 3.4)
+        # Send command to stage:
+        #self.send_cmd(1.2, 3.4)
 
     # Get current target point from UI node
     def target_callback(self, msg):

@@ -37,11 +37,8 @@ class EstimatorNode(Node):
         timer_period = 0.5  # seconds
         self.timer = self.create_timer(timer_period, self.timer_jacobian_callback)
         
-        self.X = np.zeros((7,1))
-        self.deltaX = np.zeros((7,1))
-
-        self.Z_hat = np.zeros((7,1))
-        self.deltaZ = np.zeros((7,1))
+        # Print numpy floats with only 3 decimal places
+        np.set_printoptions(formatter={'float': lambda x: "{0:0.3f}".format(x)})
 
         # Initialize Jacobian with estimated values from previous experiments
         # (Alternative: initialize with values from first two sets of sensor and stage data)
@@ -52,6 +49,11 @@ class EstimatorNode(Node):
                   (-0.0004,-0.0001, 0.0006,-0.0077,-0.0006, 0.0025,-0.0020),
                   (-0.0017,-0.0006, 0.0009, 0.0040, 0.0083, 0.0053,-0.0007),
                   (0, 0, 0, 0, 0, 0, 0)])
+
+        self.Xant = np.zeros((7,1))
+        self.Zant = np.zeros((7,1))
+        self.TXant = self.get_clock().now().to_msg()
+        self.TZant = self.get_clock().now().to_msg()
 
         self.i = 0
 
@@ -64,7 +66,6 @@ class EstimatorNode(Node):
 
         self.get_logger().info('Listening UI - Skin entry point: x=%f, y=%f, z=%f in %s frame'  % (entry_point.x, entry_point.y, \
             entry_point.z, msg.header.frame_id))
-
     
     # Get current needle_pose from Stage node
     # Perform estimator input X ("Prediction")
@@ -76,16 +77,18 @@ class EstimatorNode(Node):
 
         # Get needle pose from PoseStamped
         needle = msg_stage.pose
+        TX = msg_stage.header.stamp
 
         # From needle, get input X
         X = np.array([[needle.position.x, needle.position.y, needle.position.z, needle.orientation.x, \
             needle.orientation.y, needle.orientation.z, needle.orientation.w]]).T
 
-        self.get_logger().info('X: %s in %s frame' % (X.T, msg_stage.header.frame_id))
+        self.get_logger().info('X = %s in %s frame' % (X.T, msg_stage.header.frame_id))
 
         # Get needle shape from PoseArray
         shape = msg_sensor.poses
-        
+        TZ = msg_sensor.header.stamp
+
         # From shape, get measured Z
         N = len(shape)
         if (N==1):
@@ -101,17 +104,21 @@ class EstimatorNode(Node):
 
         Z = np.array([[shape[N-1].position.x, shape[N-1].position.y, shape[N-1].position.z, \
             q[0], q[1], q[2], q[3]]]).T
+        
+        deltaTX = (TX.sec*1e9 + TX.nanosec) - (self.TXant.sec*1e9 + self.TXant.nanosec)
+        deltaTZ = (TZ.sec*1e9 + TZ.nanosec) - (self.TZant.sec*1e9 + self.TZant.nanosec)
+        deltaZ = (Z - self.Zant)/deltaTZ
+        deltaX = (X - self.Xant)/deltaTX
+
+        self.Zant = Z
+        self.Xant = X
+        self.TXant = TX
+        self.TZant = TZ
+
+        alpha = 0.65
+        self.J = self.J + alpha*np.matmul(((deltaZ-np.matmul(self.J, deltaX))/(np.matmul(np.transpose(deltaX), deltaX)+1e9)), np.transpose(deltaX))
 
         self.get_logger().info('Z: %s in %s frame' % (Z.T, msg_sensor.header.frame_id))
-
-        ##########################################
-        # TODO: Update Jacobian and Estimate (ongoing)
-        ##########################################
-        
-        #self.deltaX = X - self.X
-        #self.X = X
-        #deltaZ_hat = np.matmul(self.J, self.deltaX)
-        #self.Z_hat = deltaZ_hat + self.Z_hat
 
         ## Normalize unit quaternion
         #self.Z_hat[3:7] = self.Z_hat[3:7]/np.linalg.norm(self.Z_hat[3:7])
@@ -119,22 +126,14 @@ class EstimatorNode(Node):
         #self.get_logger().info('Z_hat corr: %s in %s frame' % (self.Z_hat.T, msg_sensor.header.frame_id))
 
     # Publish current Jacobian matrix
-    # Update estimate Z_hat
-    # Calculate Jacobian from current estimate Z_hat
     def timer_jacobian_callback(self):
 
-        ##########################################
-        # TODO: Update Jacobian
-        ##########################################
-
         msg = CvBridge().cv2_to_imgmsg(self.J)
+        msg.header.stamp = self.get_clock().now().to_msg()
+
         self.publisher_jacobian.publish(msg)
         self.get_logger().info('Publish - Jacobian: %s' %  self.J)
         self.i += 1
-
-
-    def normalize_unit_quaternion(q):
-        return q/np.norm(q); 
 
 def main(args=None):
     rclpy.init(args=args)

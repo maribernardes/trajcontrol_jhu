@@ -48,7 +48,7 @@ class VirtualSensor(Node):
             self.i += 1
 
         self.publisher_shape.publish(msg)
-        self.get_logger().info('Publish - Pose Array = %s in %s frame' % (msg.poses, msg.header.frame_id))
+        #self.get_logger().info('Publish - Pose Array = %s in %s frame' % (msg.poses, msg.header.frame_id))
 
 def main(args=None):
     rclpy.init(args=args)
