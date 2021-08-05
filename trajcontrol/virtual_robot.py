@@ -42,13 +42,18 @@ class VirtualRobot(Node):
         trial_data = loadmat(file_path, mat_dtype=True)
         
         self.needle_pose = trial_data['needle_pose'][0]
+        self.time_stamp = trial_data['time_stamp'][0]
 
         self.i = 0
 
     # Publish current stage position
     def timer_stage_callback(self):
+
+        now = self.get_clock().now().to_msg()
+        now.nanosec = now.nanosec + int(self.time_stamp[self.i]*1e9)
+
         msg = PoseStamped()
-        msg.header.stamp = self.get_clock().now().to_msg()
+        msg.header.stamp = now
         msg.header.frame_id = "stage"
 
         #Create dummy x and y and publish

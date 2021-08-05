@@ -21,13 +21,17 @@ class VirtualSensor(Node):
         trial_data = loadmat(file_path, mat_dtype=True)
         
         self.sensor = trial_data['sensor'][0]
+        self.time_stamp = trial_data['time_stamp'][0]
         self.i=0
 
     # Publish current needle shape (PoseArray of 3D points)
     def timer_callback(self):
         
+        now = self.get_clock().now().to_msg()
+        now.nanosec = now.nanosec + int(self.time_stamp[self.i]*1e9)
+
         msg = PoseArray()
-        msg.header.stamp = self.get_clock().now().to_msg()
+        msg.header.stamp = now
         msg.header.frame_id = "needle"
 
         # Populate message with X data from matlab file
@@ -44,7 +48,7 @@ class VirtualSensor(Node):
             self.i += 1
 
         self.publisher_shape.publish(msg)
-        self.get_logger().info('Publish - Pose Array = %s ' % (msg.poses))
+        self.get_logger().info('Publish - Pose Array = %s in %s frame' % (msg.poses, msg.header.frame_id))
 
 def main(args=None):
     rclpy.init(args=args)
