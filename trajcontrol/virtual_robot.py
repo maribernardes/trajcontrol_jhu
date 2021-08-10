@@ -1,5 +1,5 @@
-import time
 import rclpy
+import numpy as np
 import ament_index_python 
 
 from rclpy.action import ActionServer, CancelResponse, GoalResponse
@@ -44,12 +44,16 @@ class VirtualRobot(Node):
         self.needle_pose = trial_data['needle_pose'][0]
         self.time_stamp = trial_data['time_stamp'][0]
         self.i = 0
-
+        
     # Publish current needle_pose
     def timer_needlepose_callback(self):
-        now = self.get_clock().now().to_msg()
-        now.nanosec = now.nanosec + int(self.time_stamp[self.i]*1e9)
 
+        # Use Aurora timestamp
+        now = self.get_clock().now().to_msg()
+        decimal = np.mod(self.time_stamp[self.i],1)
+        now.nanosec = int(decimal*1e9)
+        now.sec = int(self.time_stamp[self.i]-decimal)
+        
         msg = PoseStamped()
         msg.header.stamp = now
         msg.header.frame_id = "stage"

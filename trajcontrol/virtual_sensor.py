@@ -1,11 +1,12 @@
 import rclpy
 import numpy as np
-import ament_index_python 
+import ament_index_python
 
 from rclpy.node import Node
 from geometry_msgs.msg import PoseArray
 from geometry_msgs.msg import Pose
 from scipy.io import loadmat
+from builtin_interfaces.msg import Time
 
 class VirtualSensor(Node):
 
@@ -23,13 +24,16 @@ class VirtualSensor(Node):
         self.sensor = trial_data['sensor'][0]
         self.time_stamp = trial_data['time_stamp'][0]
         self.i=0
-
+        
     # Publish current needle shape (PoseArray of 3D points)
     def timer_callback(self):
         
+        # Use Aurora timestamp
         now = self.get_clock().now().to_msg()
-        now.nanosec = now.nanosec + int(self.time_stamp[self.i]*1e9)
-
+        decimal = np.mod(self.time_stamp[self.i],1)
+        now.nanosec = int(decimal*1e9)
+        now.sec = int(self.time_stamp[self.i]-decimal)
+    
         msg = PoseArray()
         msg.header.stamp = now
         msg.header.frame_id = "needle"

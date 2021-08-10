@@ -38,7 +38,7 @@ class EstimatorNode(Node):
         self.timer = self.create_timer(timer_period, self.timer_jacobian_callback)
         
         # Print numpy floats with only 3 decimal places
-        np.set_printoptions(formatter={'float': lambda x: "{0:0.3f}".format(x)})
+        np.set_printoptions(formatter={'float': lambda x: "{0:0.4f}".format(x)})
 
         # Initialize Jacobian with estimated values from previous experiments
         # (Alternative: initialize with values from first two sets of sensor and stage data)
@@ -60,7 +60,7 @@ class EstimatorNode(Node):
     # Get current entry point from UI node
     def entry_point_callback(self, msg):
         ##########################################
-        # TODO: Define transform from stage to needle frame
+        # TODO: Define transform from needle to stage frame
         ##########################################
         entry_point = msg.pose.position
 
@@ -78,17 +78,19 @@ class EstimatorNode(Node):
         # Get needle pose from PoseStamped
         needle = msg_stage.pose
         TX = msg_stage.header.stamp
-
+        
         # From needle, get input X
         X = np.array([[needle.position.x, needle.position.y, needle.position.z, needle.orientation.x, \
             needle.orientation.y, needle.orientation.z, needle.orientation.w]]).T
 
-        self.get_logger().info('X = %s in %s frame' % (X.T, msg_stage.header.frame_id))
+        ##########################################
+        # TODO: Transform X from needle to stage frame
+        ##########################################
 
         # Get needle shape from PoseArray
         shape = msg_sensor.poses
         TZ = msg_sensor.header.stamp
-
+        
         # From shape, get measured Z
         N = len(shape)
         if (N==1):
@@ -105,8 +107,9 @@ class EstimatorNode(Node):
         Z = np.array([[shape[N-1].position.x, shape[N-1].position.y, shape[N-1].position.z, \
             q[0], q[1], q[2], q[3]]]).T
         
-        deltaTX = (TX.sec*1e9 + TX.nanosec) - (self.TXant.sec*1e9 + self.TXant.nanosec)
-        deltaTZ = (TZ.sec*1e9 + TZ.nanosec) - (self.TZant.sec*1e9 + self.TZant.nanosec)
+        deltaTX = ((TX.sec*1e9 + TX.nanosec) - (self.TXant.sec*1e9 + self.TXant.nanosec))*1e-9
+        deltaTZ = ((TZ.sec*1e9 + TZ.nanosec) - (self.TZant.sec*1e9 + self.TZant.nanosec))*1e-9
+        
         deltaZ = (Z - self.Zant)/deltaTZ
         deltaX = (X - self.Xant)/deltaTX
 
@@ -116,9 +119,13 @@ class EstimatorNode(Node):
         self.TZant = TZ
 
         alpha = 0.65
-        self.J = self.J + alpha*np.matmul(((deltaZ-np.matmul(self.J, deltaX))/(np.matmul(np.transpose(deltaX), deltaX)+1e9)), np.transpose(deltaX))
+        if (self.i > 0): #Does nothing if first sample (no deltas)
+            self.J = self.J + alpha*np.matmul(((deltaZ-np.matmul(self.J, deltaX))/(np.matmul(np.transpose(deltaX), deltaX)+1e-9)), np.transpose(deltaX))
 
-        self.get_logger().info('Z: %s in %s frame' % (Z.T, msg_sensor.header.frame_id))
+        self.get_logger().info('Sample #%i: X = %s in %s frame' % (self.i, X.T, msg_stage.header.frame_id))
+        self.get_logger().info('Sample #%i: Z = %s in %s frame' % (self.i, Z.T, msg_sensor.header.frame_id))
+        self.get_logger().info('Sample #%i: J = \n%s' %  (self.i, self.J))
+        self.i += 1
 
         ## Normalize unit quaternion
         #self.Z_hat[3:7] = self.Z_hat[3:7]/np.linalg.norm(self.Z_hat[3:7])
@@ -132,8 +139,7 @@ class EstimatorNode(Node):
         msg.header.stamp = self.get_clock().now().to_msg()
 
         self.publisher_jacobian.publish(msg)
-        self.get_logger().info('Publish - Jacobian: %s' %  self.J)
-        self.i += 1
+        #self.get_logger().info('Publish - Jacobian: %s' %  self.J)
 
 def main(args=None):
     rclpy.init(args=args)
