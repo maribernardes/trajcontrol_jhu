@@ -12,13 +12,16 @@ class VirtualSensor(Node):
 
     def __init__(self):
         super().__init__('virtual_sensor')
+
+        #Published topics
         self.publisher_shape = self.create_publisher(PoseArray, '/needle/state/shape', 10)
         timer_period = 0.5  # seconds
         self.timer = self.create_timer(timer_period, self.timer_callback)
 
         #Load data from matlab file
         package_path = str(ament_index_python.get_package_share_path('trajcontrol'))
-        file_path = package_path + '/../../../../files/virtual_26.mat'
+        file_path = package_path + '/../../../../files/fbg_10.mat'
+        #file_path = package_path + '/../../../../files/aurora_26.mat'
         trial_data = loadmat(file_path, mat_dtype=True)
         
         self.sensor = trial_data['sensor'][0]
@@ -52,7 +55,7 @@ class VirtualSensor(Node):
             self.i += 1
 
         self.publisher_shape.publish(msg)
-        #self.get_logger().info('Publish - Pose Array = %s in %s frame' % (msg.poses, msg.header.frame_id))
+        #self.get_logger().info('Publish - Pose Array %i = %s in %s frame' % (self.i, msg.poses, msg.header.frame_id))
 
 def main(args=None):
     rclpy.init(args=args)

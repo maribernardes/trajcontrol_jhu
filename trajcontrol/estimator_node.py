@@ -1,13 +1,15 @@
-import numpy as np
 import rclpy
 import message_filters
+import math
+import numpy as np
+import quaternion
 
-from cv_bridge import CvBridge
-from cv_bridge.core import CvBridge
 from geometry_msgs.msg import PoseArray, PoseStamped
 from rclpy.node import Node
 from sensor_msgs.msg import Image
-from transforms3d.euler import euler2quat
+from cv_bridge import CvBridge
+from cv_bridge.core import CvBridge
+from numpy import linalg
 
 class EstimatorNode(Node):
 
@@ -17,14 +19,6 @@ class EstimatorNode(Node):
         #Topics from UI node
         self.subscription_UI = self.create_subscription(PoseStamped, '/subject/state/skin_entry', self.entry_point_callback, 10)
         self.subscription_UI  # prevent unused variable warning
-
-        #Topics from Stage node
-        #self.subscription_stage = self.create_subscription(PoseStamped, '/stage/state/needle_pose', self.needle_pose_callback, 10)
-        #self.subscription_stage  # prevent unused variable warning
-
-        #Topics from Sensor node
-        #self.subscription_sensor = self.create_subscription(PoseArray, '/needle/state/shape', self.needle_shape_callback, 10)
-        #self.subscription_sensor  # prevent unused variable warning
 
         #Syncronized topics (Stage and Sensor nodes)
         self.subscription_stage = message_filters.Subscriber(self, PoseStamped, '/stage/state/needle_pose')
@@ -56,7 +50,7 @@ class EstimatorNode(Node):
         self.TZant = self.get_clock().now().to_msg()
 
         self.i = 0
-
+        
     # Get current entry point from UI node
     def entry_point_callback(self, msg):
         ##########################################
@@ -93,20 +87,16 @@ class EstimatorNode(Node):
         
         # From shape, get measured Z
         N = len(shape)
+        tip = needle2stage(np.array([shape[N-1].position.x, shape[N-1].position.y, shape[N-1].position.z]))     #tip
         if (N==1):
-            q = [1, 0, 0, 0]
+            q = [0, 0, math.cos(math.pi/4), math.cos(math.pi/4)]
         else:
-            tip = np.array([shape[N-1].position.x, shape[N-1].position.y, shape[N-1].position.z])
-            ptip = np.array([shape[N-2].position.x, shape[N-2].position.y, shape[N-2].position.z])
-            dir = tip - ptip
-            yaw = np.arctan2(dir[1], dir[0])
-            pitch = np.arcsin(dir[2])
-            roll = pitch
-            q = euler2quat(yaw, roll, pitch, 'rzyx')
+            ptip = needle2stage(np.array([shape[N-2].position.x, shape[N-2].position.y, shape[N-2].position.z])) #prior to tip
+            forw = tip - ptip
+            q = upforw2quat([0, 0, 1], forw)
 
-        Z = np.array([[shape[N-1].position.x, shape[N-1].position.y, shape[N-1].position.z, \
-            q[0], q[1], q[2], q[3]]]).T
-        
+        Z = np.array([[tip[0], tip[1], tip[2], q[0], q[1], q[2], q[3]]]).T  #use np.array([[ ]]).T to get column vector
+
         deltaTX = ((TX.sec*1e9 + TX.nanosec) - (self.TXant.sec*1e9 + self.TXant.nanosec))*1e-9
         deltaTZ = ((TZ.sec*1e9 + TZ.nanosec) - (self.TZant.sec*1e9 + self.TZant.nanosec))*1e-9
         
@@ -122,15 +112,10 @@ class EstimatorNode(Node):
         if (self.i > 0): #Does nothing if first sample (no deltas)
             self.J = self.J + alpha*np.matmul(((deltaZ-np.matmul(self.J, deltaX))/(np.matmul(np.transpose(deltaX), deltaX)+1e-9)), np.transpose(deltaX))
 
-        self.get_logger().info('Sample #%i: X = %s in %s frame' % (self.i, X.T, msg_stage.header.frame_id))
-        self.get_logger().info('Sample #%i: Z = %s in %s frame' % (self.i, Z.T, msg_sensor.header.frame_id))
+        self.get_logger().info('Sample #%i: X = %s in stage frame' % (self.i, X.T))
+        self.get_logger().info('Sample #%i: Z = %s in stage frame' % (self.i, Z.T))
         self.get_logger().info('Sample #%i: J = \n%s' %  (self.i, self.J))
         self.i += 1
-
-        ## Normalize unit quaternion
-        #self.Z_hat[3:7] = self.Z_hat[3:7]/np.linalg.norm(self.Z_hat[3:7])
-        #self.Z_hat = Z
-        #self.get_logger().info('Z_hat corr: %s in %s frame' % (self.Z_hat.T, msg_sensor.header.frame_id))
 
     # Publish current Jacobian matrix
     def timer_jacobian_callback(self):
@@ -140,6 +125,87 @@ class EstimatorNode(Node):
 
         self.publisher_jacobian.publish(msg)
         #self.get_logger().info('Publish - Jacobian: %s' %  self.J)
+
+########################################################################
+### Auxiliar functions ###
+
+# Function: needle2stage
+# DO: Transform 3D point from needle frame to stage frame
+# Input: point in needle frame (numpy-array [x, y, z])
+# Output: point in stage frame (numpy-array [x, y, z])
+def needle2stage(xn):
+
+    #Define frame transformation
+    rotx = np.quaternion(math.cos(-math.pi/4), math.sin(-math.pi/4),0,0)   # [cos(-90/2), sin(-90/2)*[1,0,0]]
+    rotz = np.quaternion(math.cos(math.pi/2), 0, 0, math.sin(math.pi/2))   # [cos(180/2), sin(180/2)*[0,0,1]]
+    rns = rotx*rotz
+    pns = np.quaternion(0, 0, 0, 0)                                        #[0, x, y, z]
+
+    #Build pure quaternion with point in needle frame
+    pxn = np.quaternion(0, xn[0], xn[1], xn[2])
+    
+    #Transform to stage frame
+    pxs = pns + rns*pxn*rns.conj()
+    
+
+    xs = np.array([ pxs.x, pxs.y, pxs.z ])
+    return xs
+
+# Function: upforw2quat
+# DO:Get quaternion from up and forward vectors
+# Input: up and forward vectors (3d float arrays)
+# Output: quaternion (4d float array)
+def upforw2quat(up, forw):
+    left = np.cross(up, forw)
+    up = np.cross(forw, left) # make up orthogonal
+
+    # normalize vector just in case
+    up = up/np.linalg.norm(up)
+    forw = forw/np.linalg.norm(forw)
+    left = left/np.linalg.norm(left)
+
+    # build rotation matrix M
+    m11 = left[0]
+    m12 = left[1]
+    m13 = left[2]
+    m21 = up[0]
+    m22 = up[1]
+    m23 = up[2]
+    m31 = forw[0]
+    m32 = forw[1]
+    m33 = forw[2]
+
+    tr = m11+m22+m33 # trace of M
+    if (tr>0):
+        s = 2*math.sqrt(tr+1.0)
+        q0 = 0.25*s
+        q1 = (m32-m23)/s
+        q2 = (m13-m31)/s
+        q3 = (m21-m12)/s
+    else:
+        if ((m11>m22) and (m11>m33)):
+            s = 2*math.sqrt(1.0+m11-m22-m33)
+            q0 = (m32-m23)/s
+            q1 = 0.25*s
+            q2 = (m12+m21)/s
+            q3 = (m13+m31)/s
+        else:
+            if (m22>m33):
+                s = 2*math.sqrt(1.0+m22-m11-m33)
+                q0 = (m13-m31)/s
+                q1 = (m12+m21)/s
+                q2 = 0.25*s
+                q3 = (m23+m32)/s
+            else:
+                s = 2*math.sqrt(1.0+m33-m11-m22)
+                q0 = (m21-m12)/s
+                q1 = (m13+m31)/s
+                q2 = (m23+m32)/s
+                q3 = 0.25*s
+    q = [q0, q1, q2, q3]
+    return q/np.linalg.norm(q) # normalize q to return unit quaternion
+
+########################################################################
 
 def main(args=None):
     rclpy.init(args=args)
