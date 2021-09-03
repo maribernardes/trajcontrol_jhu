@@ -13,6 +13,9 @@ class VirtualSensor(Node):
     def __init__(self):
         super().__init__('virtual_sensor')
 
+        #Declare node parameters
+        self.declare_parameter('dataset', 'fbg_10') #Dataset file name
+
         #Published topics
         self.publisher_shape = self.create_publisher(PoseArray, '/needle/state/shape', 10)
         timer_period = 0.5  # seconds
@@ -20,8 +23,8 @@ class VirtualSensor(Node):
 
         #Load data from matlab file
         package_path = str(ament_index_python.get_package_share_path('trajcontrol'))
-        file_path = package_path + '/../../../../files/fbg_10.mat'
-        #file_path = package_path + '/../../../../files/aurora_26.mat'
+        file_name = self.get_parameter('dataset').get_parameter_value().string_value
+        file_path = package_path + '/../../../../files/'+ file_name +'.mat'
         trial_data = loadmat(file_path, mat_dtype=True)
         
         self.sensor = trial_data['sensor'][0]

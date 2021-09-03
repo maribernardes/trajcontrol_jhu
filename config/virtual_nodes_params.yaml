@@ -1,0 +1,11 @@
+virtual_sensor:
+  ros__parameters:
+    dataset: "fbg_10"
+
+virtual_robot:
+  ros__parameters:
+    dataset: "fbg_10"
+    
+estimator_node:
+  ros__parameters:
+    alpha: 0.65

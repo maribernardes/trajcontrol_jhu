@@ -4,8 +4,10 @@ import math
 import numpy as np
 import quaternion
 
-from geometry_msgs.msg import PoseArray, PoseStamped
 from rclpy.node import Node
+from rclpy.exceptions import ParameterNotDeclaredException
+from rcl_interfaces.msg import ParameterType
+from geometry_msgs.msg import PoseArray, PoseStamped
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
 from cv_bridge.core import CvBridge
@@ -15,6 +17,9 @@ class EstimatorNode(Node):
 
     def __init__(self):
         super().__init__('estimator_node')
+
+        #Declare node parameters
+        self.declare_parameter('alpha', 0.65) #Jacobian update parameter
 
         #Topics from UI node
         self.subscription_UI = self.create_subscription(PoseStamped, '/subject/state/skin_entry', self.entry_point_callback, 10)
@@ -108,7 +113,7 @@ class EstimatorNode(Node):
         self.TXant = TX
         self.TZant = TZ
 
-        alpha = 0.65
+        alpha = self.get_parameter('alpha').get_parameter_value().double_value
         if (self.i > 0): #Does nothing if first sample (no deltas)
             self.J = self.J + alpha*np.matmul(((deltaZ-np.matmul(self.J, deltaX))/(np.matmul(np.transpose(deltaX), deltaX)+1e-9)), np.transpose(deltaX))
 

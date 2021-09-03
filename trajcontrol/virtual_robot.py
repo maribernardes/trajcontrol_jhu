@@ -18,6 +18,9 @@ class VirtualRobot(Node):
 
     def __init__(self):
         super().__init__('virtual_robot')
+        
+        #Declare node parameters
+        self.declare_parameter('dataset', 'fbg_10') #Dataset file name
 
         #Published topics
         self.publisher_needle_pose = self.create_publisher(PoseStamped, '/stage/state/needle_pose', 10)
@@ -30,8 +33,8 @@ class VirtualRobot(Node):
 
         #Load data from matlab file
         package_path = str(ament_index_python.get_package_share_path('trajcontrol'))
-        file_path = package_path + '/../../../../files/fbg_10.mat'
-        #file_path = package_path + '/../../../../files/fbg_10.mat'
+        file_name = self.get_parameter('dataset').get_parameter_value().string_value
+        file_path = package_path + '/../../../../files/'+ file_name +'.mat'
         trial_data = loadmat(file_path, mat_dtype=True)
         
         self.needle_pose = trial_data['needle_pose'][0]
