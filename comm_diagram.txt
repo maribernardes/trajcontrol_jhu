@@ -1,7 +1,20 @@
 @startuml
-Robot -> MRI: Authentication Request
-Robot --> MRI: Authentication Response
+  participant robot
+  participant sensor
+  participant UI
 
-Robot -> MRI: Another authentication Request
-Robot <-- MRI: Another authentication Response
+  box trajcontrol
+    participant estimator
+    participant controller
+  end box
+
+  group time sync
+    robot -> estimator: stage/state/needle_pose
+    sensor -> estimator: /needle/state/shape
+  end
+
+  UI -> estimator: /subject/state/skin_entry
+  estimator -> controller: /needle/state/jacobian
+  UI -> controller: /subject/state/target
+  controller -> robot: /move_stage
 @enduml
