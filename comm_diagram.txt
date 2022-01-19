@@ -1,0 +1,7 @@
+@startuml
+Robot -> MRI: Authentication Request
+Robot --> MRI: Authentication Response
+
+Robot -> MRI: Another authentication Request
+Robot <-- MRI: Another authentication Response
+@enduml
