@@ -9,12 +9,12 @@
   end box
 
   group time sync
-    robot -> estimator: stage/state/needle_pose [PoseStamped]
-    sensor -> estimator: /needle/state/shape [PoseArray]
+    robot -> estimator: stage/state/needle_pose (PoseStamped) - pose (x,y,z,qx,qy,qz,qw)
+    sensor -> estimator: /needle/state/shape (PoseArray) - array of N shape positions (x,y,z)_N
   end
 
-  UI -> estimator: /subject/state/skin_entry [PoseStamped]
-  estimator -> controller: /needle/state/jacobian [Image] (Matrix)
-  UI -> controller: /subject/state/target [PoseStamped]
-  controller -> robot: /move_stage [MoveStage]
+  UI -> estimator: /subject/state/skin_entry (PoseStamped) - position (x, y, z)
+  estimator -> controller: /needle/state/jacobian (Image) - actually a 7x7 Matrix
+  UI -> controller: /subject/state/target (PoseStamped) - position (x,y,z)
+  controller -[#blue]> robot: /move_stage (MoveStage) - goal position (x,z)
 @enduml
