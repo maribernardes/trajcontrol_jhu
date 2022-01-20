@@ -9,12 +9,12 @@
   end box
 
   group time sync
-    robot -> estimator: stage/state/needle_pose
-    sensor -> estimator: /needle/state/shape
+    robot -> estimator: stage/state/needle_pose [PoseStamped]
+    sensor -> estimator: /needle/state/shape [PoseArray]
   end
 
-  UI -> estimator: /subject/state/skin_entry
-  estimator -> controller: /needle/state/jacobian
-  UI -> controller: /subject/state/target
-  controller -> robot: /move_stage
+  UI -> estimator: /subject/state/skin_entry [PoseStamped]
+  estimator -> controller: /needle/state/jacobian [Image] (Matrix)
+  UI -> controller: /subject/state/target [PoseStamped]
+  controller -> robot: /move_stage [MoveStage]
 @enduml
