@@ -1,5 +1,5 @@
 # trajcontrol
-python3 -m pip install numpy-quaternion
+python3 -m pip install numpy-quaternion /
 pip install transforms3d
 
 # Communication diagram
