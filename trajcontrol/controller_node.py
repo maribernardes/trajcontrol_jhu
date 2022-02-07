@@ -41,8 +41,11 @@ class ControllerNode(Node):
         # x and z for stage
         # y for user input (insertion depth)
         ##################################
+        
         # Send command to stage:
-        #self.send_cmd(1.2, 3.4)
+        x = 0.0
+        z = 0.0
+        self.send_cmd(x, z)
 
     # Get current target point from UI node
     def target_callback(self, msg):

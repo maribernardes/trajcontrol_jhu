@@ -60,7 +60,6 @@ class SaveFile(Node):
         with open(self.filename, 'a', newline='', encoding='UTF8') as f: # open the file in append mode
             writer = csv.writer(f) # create the csv writer
             writer.writerow(data)  # append a new row to the existing csv file
-        self.get_logger().info('saved file')        
 
 def main(args=None):
     rclpy.init(args=args)
