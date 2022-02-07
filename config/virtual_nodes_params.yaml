@@ -9,3 +9,7 @@ virtual_robot:
 estimator_node:
   ros__parameters:
     alpha: 0.65
+    
+save_file:
+  ros__parameters:
+    filename: 'demo'
