@@ -9,8 +9,8 @@
   end box
 
   group time sync
-    robot -> estimator: stage/state/needle_pose
-    sensor -> estimator: /needle/state/shape
+    robot -> estimator: /stage/state/needle_pose
+    sensor -> estimator: /needle/state/current_shape
   end
 
   UI -> estimator: /subject/state/skin_entry
