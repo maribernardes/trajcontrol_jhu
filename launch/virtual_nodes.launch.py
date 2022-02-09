@@ -45,7 +45,7 @@ def generate_launch_description():
     ld.add_action(sensor)
     ld.add_action(robot)
     ld.add_action(estimator)
-    #ld.add_action(controller)
-    #ld.add_action(user)
+    ld.add_action(controller)
+    ld.add_action(user)
 
     return ld

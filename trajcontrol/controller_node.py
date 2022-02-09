@@ -43,8 +43,8 @@ class ControllerNode(Node):
         ##################################
         
         # Send command to stage:
-        x = 0.0
-        z = 0.0
+        x = 0.05
+        z = 0.04
         self.send_cmd(x, z)
 
     # Get current target point from UI node
