@@ -1,8 +1,0 @@
-[console_scripts]
-controller_node = trajcontrol.controller_node:main
-estimator_node = trajcontrol.estimator_node:main
-keypress = trajcontrol.keypress:main
-save_file = trajcontrol.save_file:main
-virtual_robot = trajcontrol.virtual_robot:main
-virtual_sensor = trajcontrol.virtual_sensor:main
-
