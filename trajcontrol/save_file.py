@@ -82,11 +82,11 @@ class SaveFile(Node):
 
     #Get current entry_point
     def entry_point_callback(self, msg):
-        self.entry_point = [msg.pose.position.x, msg.pose.position.y, msg.pose.position.z]
+        self.entry_point = [msg.x, msg.y, msg.z]
 
     #Get current entry_point
     def target_callback(self, msg):
-        self.target = [msg.pose.position.x, msg.pose.position.y, msg.pose.position.z]
+        self.target = [msg.x, msg.y, msg.z]
 
     #Get current Z
     def sensor_callback(self, msg):
