@@ -11,6 +11,6 @@
 
 # For March 2022 demo:
 ## Launch trajectory control package (savefile, estimator and controller nodes)
-``ros2 launch trajcontrol real_test.launch.py filename:=name`` 
+``ros2 launch trajcontrol real_test.launch.py filename:=name_for_data_file`` 
 ## Run keypress node in a different terminal
 ``ros2 run trajcontrol keypress`` 
