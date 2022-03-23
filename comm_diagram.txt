@@ -1,24 +1,28 @@
 @startuml
   participant robot
-  participant aurora
+  participant JHU_needle
   participant UI
-  participant ros2_igtl_bridge
-
+  
   box trajcontrol
     participant keypress
-    participant sensor_processing
+    participant estimator
     participant controller
+    participant save_file
   end box
 
-  keypress-->sensor_processing: '/keyboard/key'
   keypress->controller: '/keyboard/key'
-  aurora -> ros2_igtl_bridge: PlusServer
-  ros2_igtl_bridge -> sensor_processing: IGTL_TRANSFORM_IN
-  
-  sensor_processing -> controller: '/needle/state/pose_filtered'
+  JHU_needle -> estimator: /needle/state/current_shape
+  JHU_needle -> controller: /needle/state/current_shape
   UI -> controller: /subject/state/skin_entry
   UI -> controller: /subject/state/target
   robot -> controller: /stage/state/needle_pose
-
   controller -> robot: /move_stage
+
+  controller -> save_file: /stage/control/cmd
+  estimator -> save_file: /needle/state/jacobian
+  UI -> save_file: /subject/state/skin_entry
+  UI -> save_file: /subject/state/target
+  JHU_needle -> save_file: /needle/state/current_shape
+  robot -> save_file: /stage/state/needle_pose
+
 @enduml

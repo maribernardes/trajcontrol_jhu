@@ -1,0 +1,58 @@
+running egg_info
+creating build/trajcontrol/trajcontrol.egg-info
+writing build/trajcontrol/trajcontrol.egg-info/PKG-INFO
+writing dependency_links to build/trajcontrol/trajcontrol.egg-info/dependency_links.txt
+writing entry points to build/trajcontrol/trajcontrol.egg-info/entry_points.txt
+writing requirements to build/trajcontrol/trajcontrol.egg-info/requires.txt
+writing top-level names to build/trajcontrol/trajcontrol.egg-info/top_level.txt
+writing manifest file 'build/trajcontrol/trajcontrol.egg-info/SOURCES.txt'
+reading manifest file 'build/trajcontrol/trajcontrol.egg-info/SOURCES.txt'
+writing manifest file 'build/trajcontrol/trajcontrol.egg-info/SOURCES.txt'
+running build
+running build_py
+creating /home/mariana/ROS/ws_jhu/src/trajcontrol/build/trajcontrol/build
+creating /home/mariana/ROS/ws_jhu/src/trajcontrol/build/trajcontrol/build/lib
+creating /home/mariana/ROS/ws_jhu/src/trajcontrol/build/trajcontrol/build/lib/trajcontrol
+copying trajcontrol/estimator_node.py -> /home/mariana/ROS/ws_jhu/src/trajcontrol/build/trajcontrol/build/lib/trajcontrol
+copying trajcontrol/save_file.py -> /home/mariana/ROS/ws_jhu/src/trajcontrol/build/trajcontrol/build/lib/trajcontrol
+copying trajcontrol/keypress.py -> /home/mariana/ROS/ws_jhu/src/trajcontrol/build/trajcontrol/build/lib/trajcontrol
+copying trajcontrol/virtual_sensor.py -> /home/mariana/ROS/ws_jhu/src/trajcontrol/build/trajcontrol/build/lib/trajcontrol
+copying trajcontrol/virtual_robot.py -> /home/mariana/ROS/ws_jhu/src/trajcontrol/build/trajcontrol/build/lib/trajcontrol
+copying trajcontrol/controller_node.py -> /home/mariana/ROS/ws_jhu/src/trajcontrol/build/trajcontrol/build/lib/trajcontrol
+copying trajcontrol/__init__.py -> /home/mariana/ROS/ws_jhu/src/trajcontrol/build/trajcontrol/build/lib/trajcontrol
+running install
+running install_lib
+creating /home/mariana/ROS/ws_jhu/src/trajcontrol/install/trajcontrol/lib/python3.8/site-packages/trajcontrol
+copying /home/mariana/ROS/ws_jhu/src/trajcontrol/build/trajcontrol/build/lib/trajcontrol/estimator_node.py -> /home/mariana/ROS/ws_jhu/src/trajcontrol/install/trajcontrol/lib/python3.8/site-packages/trajcontrol
+copying /home/mariana/ROS/ws_jhu/src/trajcontrol/build/trajcontrol/build/lib/trajcontrol/save_file.py -> /home/mariana/ROS/ws_jhu/src/trajcontrol/install/trajcontrol/lib/python3.8/site-packages/trajcontrol
+copying /home/mariana/ROS/ws_jhu/src/trajcontrol/build/trajcontrol/build/lib/trajcontrol/keypress.py -> /home/mariana/ROS/ws_jhu/src/trajcontrol/install/trajcontrol/lib/python3.8/site-packages/trajcontrol
+copying /home/mariana/ROS/ws_jhu/src/trajcontrol/build/trajcontrol/build/lib/trajcontrol/virtual_sensor.py -> /home/mariana/ROS/ws_jhu/src/trajcontrol/install/trajcontrol/lib/python3.8/site-packages/trajcontrol
+copying /home/mariana/ROS/ws_jhu/src/trajcontrol/build/trajcontrol/build/lib/trajcontrol/virtual_robot.py -> /home/mariana/ROS/ws_jhu/src/trajcontrol/install/trajcontrol/lib/python3.8/site-packages/trajcontrol
+copying /home/mariana/ROS/ws_jhu/src/trajcontrol/build/trajcontrol/build/lib/trajcontrol/controller_node.py -> /home/mariana/ROS/ws_jhu/src/trajcontrol/install/trajcontrol/lib/python3.8/site-packages/trajcontrol
+copying /home/mariana/ROS/ws_jhu/src/trajcontrol/build/trajcontrol/build/lib/trajcontrol/__init__.py -> /home/mariana/ROS/ws_jhu/src/trajcontrol/install/trajcontrol/lib/python3.8/site-packages/trajcontrol
+byte-compiling /home/mariana/ROS/ws_jhu/src/trajcontrol/install/trajcontrol/lib/python3.8/site-packages/trajcontrol/estimator_node.py to estimator_node.cpython-38.pyc
+byte-compiling /home/mariana/ROS/ws_jhu/src/trajcontrol/install/trajcontrol/lib/python3.8/site-packages/trajcontrol/save_file.py to save_file.cpython-38.pyc
+byte-compiling /home/mariana/ROS/ws_jhu/src/trajcontrol/install/trajcontrol/lib/python3.8/site-packages/trajcontrol/keypress.py to keypress.cpython-38.pyc
+byte-compiling /home/mariana/ROS/ws_jhu/src/trajcontrol/install/trajcontrol/lib/python3.8/site-packages/trajcontrol/virtual_sensor.py to virtual_sensor.cpython-38.pyc
+byte-compiling /home/mariana/ROS/ws_jhu/src/trajcontrol/install/trajcontrol/lib/python3.8/site-packages/trajcontrol/virtual_robot.py to virtual_robot.cpython-38.pyc
+byte-compiling /home/mariana/ROS/ws_jhu/src/trajcontrol/install/trajcontrol/lib/python3.8/site-packages/trajcontrol/controller_node.py to controller_node.cpython-38.pyc
+byte-compiling /home/mariana/ROS/ws_jhu/src/trajcontrol/install/trajcontrol/lib/python3.8/site-packages/trajcontrol/__init__.py to __init__.cpython-38.pyc
+running install_data
+creating /home/mariana/ROS/ws_jhu/src/trajcontrol/install/trajcontrol/share/ament_index
+creating /home/mariana/ROS/ws_jhu/src/trajcontrol/install/trajcontrol/share/ament_index/resource_index
+creating /home/mariana/ROS/ws_jhu/src/trajcontrol/install/trajcontrol/share/ament_index/resource_index/packages
+copying resource/trajcontrol -> /home/mariana/ROS/ws_jhu/src/trajcontrol/install/trajcontrol/share/ament_index/resource_index/packages
+copying package.xml -> /home/mariana/ROS/ws_jhu/src/trajcontrol/install/trajcontrol/share/trajcontrol
+creating /home/mariana/ROS/ws_jhu/src/trajcontrol/install/trajcontrol/share/trajcontrol/launch
+copying launch/real_test.launch.py -> /home/mariana/ROS/ws_jhu/src/trajcontrol/install/trajcontrol/share/trajcontrol/launch
+copying launch/virtual_test.launch.py -> /home/mariana/ROS/ws_jhu/src/trajcontrol/install/trajcontrol/share/trajcontrol/launch
+running install_egg_info
+Copying build/trajcontrol/trajcontrol.egg-info to /home/mariana/ROS/ws_jhu/src/trajcontrol/install/trajcontrol/lib/python3.8/site-packages/trajcontrol-0.0.0-py3.8.egg-info
+running install_scripts
+Installing controller_node script to /home/mariana/ROS/ws_jhu/src/trajcontrol/install/trajcontrol/lib/trajcontrol
+Installing estimator_node script to /home/mariana/ROS/ws_jhu/src/trajcontrol/install/trajcontrol/lib/trajcontrol
+Installing keypress script to /home/mariana/ROS/ws_jhu/src/trajcontrol/install/trajcontrol/lib/trajcontrol
+Installing save_file script to /home/mariana/ROS/ws_jhu/src/trajcontrol/install/trajcontrol/lib/trajcontrol
+Installing virtual_robot script to /home/mariana/ROS/ws_jhu/src/trajcontrol/install/trajcontrol/lib/trajcontrol
+Installing virtual_sensor script to /home/mariana/ROS/ws_jhu/src/trajcontrol/install/trajcontrol/lib/trajcontrol
+writing list of installed files to '/home/mariana/ROS/ws_jhu/src/trajcontrol/build/trajcontrol/install.log'

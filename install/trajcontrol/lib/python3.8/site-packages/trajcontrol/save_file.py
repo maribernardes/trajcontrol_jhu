@@ -78,7 +78,7 @@ class SaveFile(Node):
                   0,0,0,0,0,0,0, \
                   0,0,0,0,0,0,0]        #jacobian matrix
         self.cmd = [0,0]                #controller output
-        self.get_logger().info('Experimental data will be saved at %s' %(self.filename))   
+        self.get_logger().info('Log data will be saved at %s' %(self.filename))   
 
     #Get current entry_point
     def entry_point_callback(self, msg):
@@ -131,7 +131,6 @@ class SaveFile(Node):
         with open(self.filename, 'a', newline='', encoding='UTF8') as f: # open the file in append mode
             writer = csv.writer(f) # create the csv writer
             writer.writerow(data)  # append a new row to the existing csv file     
-        # self.get_logger().info('File saved')   
 
 def main(args=None):
     rclpy.init(args=args)
