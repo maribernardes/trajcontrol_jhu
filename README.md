@@ -3,7 +3,7 @@
 
 ``pip install transforms3d``
 
-``pip3 install opencv-python``
+``pip install opencv-python``
 
 
 # Communication diagram
