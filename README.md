@@ -1,5 +1,5 @@
 # trajcontrol dependencies
-``python3 -m pip install numpy-quaternion`` 
+``pip install numpy-quaternion`` 
 
 ``pip install transforms3d``
 
