@@ -4,10 +4,16 @@
   <name>trajcontrol</name>
   <version>0.0.0</version>
   <description>Needle trajectory compensation</description>
-  <maintainer email="bernardes@unb.br">Mariana Bernardes</maintainer>
+  <maintainer email="mcostabernardesmatias@bwh.harvard.edu">Mariana Bernardes</maintainer>
   <license>TODO: License declaration</license>
 
-  <exec_depend>python3-numpy</exec_depend>
+  <depend>python3-numpy</depend>
+  <depend>python-numpy-quaternion-pip</depend>
+  <depend>python3-scipy</depend>
+  <depend>python-transforms3d-pip</depend>
+
+  <depend>ros2_igtl_bridge</depend>
+  <depend>stage_control_interfaces</depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>
@@ -17,4 +23,5 @@
   <export>
     <build_type>ament_python</build_type>
   </export>
+
 </package>

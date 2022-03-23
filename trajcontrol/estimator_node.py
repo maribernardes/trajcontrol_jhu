@@ -21,14 +21,6 @@ class EstimatorNode(Node):
         #Declare node parameters
         self.declare_parameter('alpha', 0.65) #Jacobian update parameter
 
-        #Topics from UI node
-        self.subscription_UI = self.create_subscription(PoseStamped, '/subject/state/skin_entry', self.entry_point_callback, 10)
-        self.subscription_UI  # prevent unused variable warning
-
-        #Topics to be deleted after successful synchonization is confirmed
-        self.subscription_test_robot = self.create_subscription(PoseStamped, '/stage/state/needle_pose', self.subscription_robot_asynch, 10)
-        self.subscription_test_sensor = self.create_subscription(PoseArray, '/needle/state/current_shape', self.subscription_sensor_asynch, 10)
-
         #Syncronized topics (robot and sensor nodes)
         self.subscription_robot = message_filters.Subscriber(self, PoseStamped, '/stage/state/needle_pose')
         self.subscription_sensor = message_filters.Subscriber(self, PoseArray, '/needle/state/current_shape')
@@ -57,95 +49,40 @@ class EstimatorNode(Node):
         self.Zant = np.zeros((7,1))
         self.TXant = self.get_clock().now().to_msg()
         self.TZant = self.get_clock().now().to_msg()
-
         self.i = 0
 
-##############################################################################################################################
-# EXTRA SUBSCRIPTIONS FOR TESTING PURPOSES - Delete after integration demo is successful
-##############################################################################################################################
-    # Test '/stage/state/needle_pose'
-    def subscription_robot_asynch(self, msg):
-        ##########################################
-        # TODO: Delete this callback after demo is tested
-        ##########################################
-
-        # Get needle pose from PoseStamped
-        needle = msg.pose
-        
-        # From robot/needle, get X
-        X = np.array([[needle.position.x, needle.position.y, needle.position.z, needle.orientation.x, \
-            needle.orientation.y, needle.orientation.z, needle.orientation.w]]).T
-        
-        self.get_logger().info('Listening robot - Sample #%i (asynch): X = %s in %s frame - Received from /stage/state/needle_pose' % (self.i, X.T, msg.header.frame_id))
-        
-
-    # Test '/needle/state/current_shape'
-    def subscription_sensor_asynch(self, msg):
-        ##########################################
-        # TODO: Delete this callback after demo is tested
-        ##########################################
-        
-        # Get needle shape from PoseArray
-        shape = msg.poses
-        
-        # From shape, get Z
-        N = len(shape)
-        tip = np.array([shape[N-1].position.x, shape[N-1].position.y, shape[N-1].position.z])  #tip position
-        q = np.array([shape[N-1].orientation.w, shape[N-1].orientation.x, shape[N-1].orientation.y, shape[N-1].orientation.z])  #tip orientation
-
-        Z = np.array([[tip[0], tip[1], tip[2], q[0], q[1], q[2], q[3]]]).T  #use np.array([[ ]]).T to get column vector
-
-        self.get_logger().info('Listening shape - Sample #%i (asynch): Z = %s in %s frame - Received from /needle/state/current_shape' % (self.i, Z.T, msg.header.frame_id))
-
-##############################################################################################################################
-
-    # Get entry_point from UI
-    def entry_point_callback(self, msg):
-        ##########################################
-        # TODO: Define transform from UI to robot frame
-        ##########################################
-        entry_point = msg.pose.position
-
-        self.get_logger().info('Listening UI - Skin entry point: x=%f, y=%f, z=%f in %s frame'  % (entry_point.x, entry_point.y, \
-            entry_point.z, msg.header.frame_id))        
-    
     # Get current needle_pose from robot node
-    # Perform estimator input X ("Prediction")
     # X = [x_robot, y_needle_depth, z_robot, q_needle_roll]
-    # Get current needle shape from FBG sensor measurements
-    # Perform estimator "correction"
-    # Z = [x_tip, y_tip, z_tip, q_tip] (Obs: for q, roll=pitch)
+    # Get estimator input X
+    # Perform estimator "correction" from last Z (sensorized needle)
     def sync_callback(self, msg_robot, msg_sensor):
 
         # Get needle pose from PoseStamped
-        needle = msg_robot.pose
+        base = msg_robot.pose
         TX = msg_robot.header.stamp
         
-        ##########################################
-        # TODO: Check quaternion order of elements
-        ##########################################
-        # From needle, get input X
-        X = np.array([[needle.position.x, needle.position.y, needle.position.z, needle.orientation.x, \
-            needle.orientation.y, needle.orientation.z, needle.orientation.w]]).T
+        # From base, get input X
+        X = np.array([[base.position.x, base.position.y, base.position.z, \
+            base.orientation.w, base.orientation.x, base.orientation.y, base.orientation.z]]).T
 
-        # Get needle shape from PoseArray
+        # Get shape from sensorized needle
         shape = msg_sensor.poses
         TZ = msg_sensor.header.stamp
         
         # From shape, get measured Z
         N = len(shape)
         tip = np.array([shape[N-1].position.x, shape[N-1].position.y, shape[N-1].position.z])  #get tip
-        if (msg_sensor.header.frame_id=='needle'):
-          tip = needle2robot(tip)     #tranform from needle to robot frame
+        q = np.array([shape[N-1].orientation.w, shape[N-1].orientation.x, shape[N-1].orientation.y, shape[N-1].orientation.z])
+
         ##########################################
-        # TODO: Check use of orientation from shape instead of calculating myself
+        # TODO: Check use of orientation from shape instead of calculating myself as below
         ##########################################
-        if (N==1):
-            q = [0, 0, math.cos(math.pi/4), math.cos(math.pi/4)]
-        else:
-            ptip = needle2robot(np.array([shape[N-2].position.x, shape[N-2].position.y, shape[N-2].position.z])) #prior to tip
-            forw = tip - ptip
-            q = upforw2quat([0, 0, 1], forw)
+        # if (N==1):
+        #     q = [0, 0, math.cos(math.pi/4), math.cos(math.pi/4)]
+        # else:
+        #     ptip = np.array([shape[N-2].position.x, shape[N-2].position.y, shape[N-2].position.z]) #prior to tip
+        #     forw = tip - ptip
+        #     q = upforw2quat([0, 0, 1], forw)
 
         Z = np.array([[tip[0], tip[1], tip[2], q[0], q[1], q[2], q[3]]]).T  #use np.array([[ ]]).T to get column vector
 
@@ -164,9 +101,8 @@ class EstimatorNode(Node):
         if (self.i > 0): #Does nothing if first sample (no deltas)
             self.J = self.J + alpha*np.matmul(((deltaZ-np.matmul(self.J, deltaX))/(np.matmul(np.transpose(deltaX), deltaX)+1e-9)), np.transpose(deltaX))
 
-        self.get_logger().info('Sample #%i: X = %s in robot frame' % (self.i, X.T))
-        self.get_logger().info('Sample #%i: Z = %s in robot frame' % (self.i, Z.T))
-        #self.get_logger().info('Sample #%i: J = \n%s' %  (self.i, self.J))
+        # self.get_logger().info('Sample #%i: X = %s in %s frame' % (self.i, X.T, msg_robot.header.frame_id))
+        # self.get_logger().info('Sample #%i: Z = %s in %s frame' % (self.i, Z.T, msg_sensor.header.frame_id))
         self.i += 1
 
     # Publish current Jacobian matrix
@@ -176,40 +112,15 @@ class EstimatorNode(Node):
         msg.header.stamp = self.get_clock().now().to_msg()
 
         self.publisher_jacobian.publish(msg)
-        #self.get_logger().info('Publish - Jacobian: %s' %  self.J)
+        # self.get_logger().info('J = %s' %  self.J)
 
 ########################################################################
 ### Auxiliar functions ###
 
-# Function: needle2robot
-# DO: Transform 3D point from needle frame to robot frame
-# Input: point in needle frame (numpy-array [x, y, z])
-# Output: point in robot frame (numpy-array [x, y, z])
-def needle2robot(xn):
-
-    #Define frame transformation
-    rotx = np.quaternion(math.cos(-math.pi/4), math.sin(-math.pi/4),0,0)   # [cos(-90/2), sin(-90/2)*[1,0,0]]
-    rotz = np.quaternion(math.cos(math.pi/2), 0, 0, math.sin(math.pi/2))   # [cos(180/2), sin(180/2)*[0,0,1]]
-    rns = rotx*rotz
-    ##########################################
-    # TODO: Add x, y and z values in pns
-    ##########################################    
-    pns = np.quaternion(0, 0, 0, 0)                                        #[0, x, y, z] 
-
-    #Build pure quaternion with point in needle frame
-    pxn = np.quaternion(0, xn[0], xn[1], xn[2])
-    
-    #Transform to robot frame
-    pxs = pns + rns*pxn*rns.conj()
-    
-
-    xs = np.array([ pxs.x, pxs.y, pxs.z ])
-    return xs
-
 # Function: upforw2quat
 # DO:Get quaternion from up and forward vectors
-# Input: up and forward vectors (3d float arrays)
-# Output: quaternion (4d float array)
+# Input: up and forward vectors (3d float arrays - [x, y, z])
+# Output: quaternion (4d float array - [qw, qx, qy, qz])
 def upforw2quat(up, forw):
     left = np.cross(up, forw)
     up = np.cross(forw, left) # make up orthogonal

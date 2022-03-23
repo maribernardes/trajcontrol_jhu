@@ -1,21 +1,24 @@
 @startuml
   participant robot
-  participant sensor
+  participant aurora
   participant UI
+  participant ros2_igtl_bridge
 
   box trajcontrol
-    participant estimator
+    participant keypress
+    participant sensor_processing
     participant controller
   end box
 
-  group time sync
+  keypress-->sensor_processing: '/keyboard/key'
+  keypress->controller: '/keyboard/key'
+  aurora -> ros2_igtl_bridge: PlusServer
+  ros2_igtl_bridge -> sensor_processing: IGTL_TRANSFORM_IN
+  
+  sensor_processing -> controller: '/needle/state/pose_filtered'
+  UI -> controller: /subject/state/skin_entry
+  UI -> controller: /subject/state/target
+  robot -> controller: /stage/state/needle_pose
 
-    robot -> estimator: /stage/state/needle_pose \n geometry_msgs/msg/PoseStamped
-    sensor -> estimator: /needle/state/current_shape \n geometry_msgs/msg/PoseArray
-  end
-
-  UI -> estimator: /subject/state/skin_entry \n geometry_msgs/msg/PoseStamped
-  estimator -> controller: /needle/state/jacobian \n sensor_msgs/msg/Image
-  UI -> controller: /subject/state/target \n geometry_msgs/msg/PoseStamped
-  controller -[#blue]> robot: /move_stage \n stage_control_interfaces/action/MoveStage
+  controller -> robot: /move_stage
 @enduml
