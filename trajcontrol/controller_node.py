@@ -16,7 +16,7 @@ class ControllerNode(Node):
         super().__init__('controller_node')
 
         #Declare node parameters
-        self.declare_parameter('K', -0.01) #Controller gain
+        self.declare_parameter('K', -0.1) #Controller gain
 
         #Topic from keypress node
         self.subscription_keyboard = self.create_subscription(Int8, '/keyboard/key', self.keyboard_callback, 10)
@@ -98,10 +98,10 @@ class ControllerNode(Node):
             # Calculate control output
             K = self.get_parameter('K').get_parameter_value().double_value          # Get K value  
              
-            mytip = np.array([self.tip[0], self.tip[1], self.tip[2]])       
+            mytip = np.array([self.tip[0], self.tip[1], self.tip[2]])    # TODO to remove these 3 lines   
             self.get_logger().info('Tip=%s' % (mytip))           
             self.get_logger().info('Target=%s' % (self.target))  
-            error = mytip-self.target   # Calculate error between tip and target 
+            error = np.array([self.tip[0], self.tip[1], self.tip[2]])  -self.target   # Calculate error between tip and target 
          
             self.cmd = np.array([self.stage[0], self.stage[2]]) + K*np.array([error[0], error[2]])
  
@@ -123,15 +123,15 @@ class ControllerNode(Node):
             goal_msg = MoveStage.Goal()
             goal_msg.x = float(self.cmd[0]*0.001)
             goal_msg.z = float(self.cmd[1]*0.001)
-            goal_msg.eps = 0.0
+            goal_msg.eps = 0.01
 
             self.get_logger().info('Waiting for action server...')
             self.action_client.wait_for_server()
             
             self.get_logger().info('Sending goal request... Control u: x=%f, z=%f' % ((goal_msg.x)*1000, (goal_msg.z)*1000))
-            goal_msg.x = goal_msg.x*1000
-            goal_msg.z = goal_msg.z*1000      
             self.send_goal_future = self.action_client.send_goal_async(goal_msg)
+            goal_msg.x = goal_msg.x*1000
+            goal_msg.z = goal_msg.z*1000  
             self.send_goal_future.add_done_callback(self.goal_response_callback)
 
     # Check if MoveStage action was accepted 
