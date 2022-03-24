@@ -104,6 +104,7 @@ class EstimatorNode(Node):
         # self.get_logger().info('Sample #%i: X = %s in %s frame' % (self.i, X.T, msg_robot.header.frame_id))
         # self.get_logger().info('Sample #%i: Z = %s in %s frame' % (self.i, Z.T, msg_sensor.header.frame_id))
         self.i += 1
+        self.get_logger().info('J = %s' %  self.J)
 
     # Publish current Jacobian matrix
     def timer_jacobian_callback(self):
