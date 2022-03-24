@@ -10,16 +10,19 @@
     participant save_file
   end box
 
-  keypress->controller: '/keyboard/key'
   JHU_needle -> estimator: /needle/state/current_shape
+  robot -> estimator: /stage/state/needle_pose
+  estimator --> controller: /needle/state/jacobian
+
+  keypress->controller: '/keyboard/key'
   JHU_needle -> controller: /needle/state/current_shape
   UI -> controller: /subject/state/skin_entry
   UI -> controller: /subject/state/target
   robot -> controller: /stage/state/needle_pose
   controller -> robot: /move_stage
 
-  controller -> save_file: /stage/control/cmd
   estimator -> save_file: /needle/state/jacobian
+  controller -> save_file: /stage/control/cmd
   UI -> save_file: /subject/state/skin_entry
   UI -> save_file: /subject/state/target
   JHU_needle -> save_file: /needle/state/current_shape
