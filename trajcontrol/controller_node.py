@@ -63,11 +63,14 @@ class ControllerNode(Node):
     def entry_callback(self, msg):
         entry_point = msg
         self.entry_point = np.array([entry_point.x, entry_point.y, entry_point.z])
+        self.get_logger().info('Entry point received')
 
     # Get current target
     def target_callback(self, msg):
         target = msg
         self.target = np.array([target.x, target.y, target.z])
+        self.get_logger().info('Target point received')
+        self.get_logger().info('Target point is x=%f, y= %f, z=%f' % (target.x,target.y,target.z))
 
     # Get current tip pose
     def tip_callback(self, msg):
@@ -78,8 +81,8 @@ class ControllerNode(Node):
             shape[N-1].orientation.w, shape[N-1].orientation.x, shape[N-1].orientation.y, shape[N-1].orientation.z])  #tip pose
 
         # Have a forced target for testing 
-        self.target = np.array([self.tip[0], self.tip[1], self.tip[2]]) + np.array([1,1,1]) # REMOVE AFTER TESTS
-        self.entry_point = np.array([1,1,1]) # REMOVE AFTER TESTS
+        #self.target = np.array([self.tip[0], self.tip[1], self.tip[2]]) + np.array([1,1,1]) # REMOVE AFTER TESTS
+        #self.entry_point = np.array([1,1,1]) # REMOVE AFTER TESTS
 
     # Get current base pose
     def robot_callback(self, msg_robot):
@@ -93,10 +96,15 @@ class ControllerNode(Node):
         # Send new control signal only tip and target available and if robot has finished previous action
         if (self.robot_ready == True) and (len(self.tip) != 0) and (len(self.target) != 0):
             # Calculate control output
-            K = self.get_parameter('K').get_parameter_value().double_value          # Get K value          
-            error = np.array([self.tip[0], self.tip[1], self.tip[2]])-self.target   # Calculate error between tip and target            
+            K = self.get_parameter('K').get_parameter_value().double_value          # Get K value  
+             
+            mytip = np.array([self.tip[0], self.tip[1], self.tip[2]])       
+            self.get_logger().info('Tip=%s' % (mytip))           
+            self.get_logger().info('Target=%s' % (self.target))  
+            error = mytip-self.target   # Calculate error between tip and target 
+         
             self.cmd = np.array([self.stage[0], self.stage[2]]) + K*np.array([error[0], error[2]])
-
+ 
             # Limit control output to maximum +-5mm around entry point
             self.cmd[0] = min(self.cmd[0], self.entry_point[0]+5)
             self.cmd[1] = min(self.cmd[1], self.entry_point[2]+5)
@@ -113,14 +121,16 @@ class ControllerNode(Node):
             # Send command to stage
             self.robot_ready = False
             goal_msg = MoveStage.Goal()
-            goal_msg.x = float(self.cmd[0])
-            goal_msg.z = float(self.cmd[1])
+            goal_msg.x = float(self.cmd[0]*0.001)
+            goal_msg.z = float(self.cmd[1]*0.001)
             goal_msg.eps = 0.0
 
             self.get_logger().info('Waiting for action server...')
             self.action_client.wait_for_server()
             
-            self.get_logger().info('Sending goal request... Control u: x=%f, z=%f' % (goal_msg.x, goal_msg.z))      
+            self.get_logger().info('Sending goal request... Control u: x=%f, z=%f' % ((goal_msg.x)*1000, (goal_msg.z)*1000))
+            goal_msg.x = goal_msg.x*1000
+            goal_msg.z = goal_msg.z*1000      
             self.send_goal_future = self.action_client.send_goal_async(goal_msg)
             self.send_goal_future.add_done_callback(self.goal_response_callback)
 

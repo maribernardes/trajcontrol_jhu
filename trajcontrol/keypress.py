@@ -19,8 +19,8 @@ class Keypress(Node):
         if (k==32):# to filter only desired keys: 10=ENTER, 32=SPACE
             msg = Int8()
             msg.data = k
+            self.get_logger().info('Pressed SPACE: Timestamp BEGIN')
             self.publisher.publish(msg)
-            self.get_logger().info('Pressed SPACE')
 
 def main(args=None):
     rclpy.init(args=args)
