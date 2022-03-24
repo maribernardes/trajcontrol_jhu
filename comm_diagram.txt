@@ -14,7 +14,7 @@
   robot -> estimator: /stage/state/needle_pose
   estimator --> controller: /needle/state/jacobian
 
-  keypress->controller: '/keyboard/key'
+  keypress->controller: /keyboard/key
   JHU_needle -> controller: /needle/state/current_shape
   UI -> controller: /subject/state/skin_entry
   UI -> controller: /subject/state/target
