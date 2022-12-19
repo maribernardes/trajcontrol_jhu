@@ -9,10 +9,10 @@ from geometry_msgs.msg import Pose
 from scipy.io import loadmat
 from builtin_interfaces.msg import Time
 
-class VirtualSensor(Node):
+class VirtualNeedle(Node):
 
     def __init__(self):
-        super().__init__('virtual_sensor')
+        super().__init__('virtual_needle')
 
         #Declare node parameters
         self.declare_parameter('dataset', 'fbg_10') #Dataset file name
@@ -62,14 +62,14 @@ class VirtualSensor(Node):
 def main(args=None):
     rclpy.init(args=args)
 
-    virtual_sensor = VirtualSensor()
+    virtual_needle = VirtualNeedle()
 
-    rclpy.spin(virtual_sensor)
+    rclpy.spin(virtual_needle)
 
     # Destroy the node explicitly
     # (optional - otherwise it will be done automatically
     # when the garbage collector destroys the node object)
-    virtual_sensor.destroy_node()
+    virtual_needle.destroy_node()
     rclpy.shutdown()
 
 

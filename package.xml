@@ -9,6 +9,7 @@
 
   <depend>python3-numpy</depend>
   <depend>python-numpy-quaternion-pip</depend>
+  <depend>python3-scipy</depend>
   <depend>python-transforms3d-pip</depend>
 
   <depend>ros2_igtl_bridge</depend>

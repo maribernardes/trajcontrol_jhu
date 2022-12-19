@@ -14,9 +14,9 @@ from launch_ros.actions import Node
 from launch import LaunchDescription, actions
 from launch.actions import DeclareLaunchArgument
 
-# Launch stage control in mcp mode
+# Launch stage control in simple mode
 # Remember to launch PlusServer connected to Aurora in another terminal
-# Remember to run keypress node (trajcontrol package) in another terminal
+# Remember to launch keypress node (trajcontrol package) in another terminal
 
 def generate_launch_description():
 
@@ -30,10 +30,15 @@ def generate_launch_description():
             }.items()
     )
 
-    # Use virtual sensor to emulate JHU sensorized needle
-    needle = Node(
-        package="trajcontrol",
-        executable="virtual_needle",
+    # Use ros2_igtl_bridge for client with port 18944 and localhost IP
+    aurora = Node(
+        package = "ros2_igtl_bridge",
+        executable = "igtl_node",
+        parameters = [
+            {"RIB_server_ip": "localhost"},
+            {"RIB_port": 18944},
+            {"RIB_type": "client"}
+        ]
     )
 
     # Use sensor processing node with final insertion length of 100mm
@@ -53,16 +58,12 @@ def generate_launch_description():
             {"save_J": False}
         ]    
     ) 
-
+    
     # Use simple controller (K*J*e)
     controller = Node(
         package = "trajcontrol",
-        executable = "controller_mpc",
-        parameters = [
-            {"insertion_length": -100.0},
-            {"H": LaunchConfiguration('H')},
-            {"filename": LaunchConfiguration('filename')}
-            ]
+        executable = "controller_proportional",
+        parameters =[{"K": LaunchConfiguration('K')}]
     )   
 
     # Save data to filename defined by user
@@ -80,13 +81,13 @@ def generate_launch_description():
         ),
         actions.LogInfo(msg = ["filename: ", LaunchConfiguration('filename')]),
         DeclareLaunchArgument(
-            "H",
-            default_value = "4",
-            description = "MPC horizon size"
+            "K",
+            default_value = "0.5",
+            description = "Control gain"
         ),
-        actions.LogInfo(msg = ["H: ", LaunchConfiguration('H')]),
+        actions.LogInfo(msg = ["K: ", LaunchConfiguration('K')]),
         robot,
-        needle,
+        aurora,
         sensor,
         estimator,
         controller,

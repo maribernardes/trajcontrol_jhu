@@ -13,6 +13,7 @@ setup(
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
         (os.path.join('share', package_name, 'launch'), glob('launch/*.launch.py')),
+        (os.path.join('share', package_name, 'config'), glob('config/*.yaml'))
     ],
     
     install_requires=['setuptools'],
@@ -24,11 +25,17 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'virtual_sensor= trajcontrol.virtual_sensor:main',
-            'virtual_robot = trajcontrol.virtual_robot:main',
             'keypress = trajcontrol.keypress:main',
-            'estimator_node = trajcontrol.estimator_node:main',
-            'controller_node = trajcontrol.controller_node:main',
+            'virtual_needle = trajcontrol.virtual_needle:main',
+            'sensor_processing = trajcontrol.sensor_processing:main',
+            'estimator = trajcontrol.estimator:main',
+            'controller_init = trajcontrol.controller_init:main',
+            'controller_manual = trajcontrol.controller_manual:main',
+            'controller_sequence = trajcontrol.controller_sequence:main',
+            'controller_rand = trajcontrol.controller_rand:main',
+            'controller_proportional = trajcontrol.controller_proportional:main',
+            'controller_mpc = trajcontrol.controller_mpc:main',
+            'registration = trajcontrol.registration:main',
             'save_file = trajcontrol.save_file:main',
         ],
     },

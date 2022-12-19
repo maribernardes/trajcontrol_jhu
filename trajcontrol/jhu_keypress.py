@@ -16,12 +16,11 @@ class Keypress(Node):
 
     def timer_keyboard_callback(self):
         k = ord(getch.getch())  # this is used to convert the keypress event in the keyboard or joypad , joystick to a ord value
-        # to filter only desired keys: 10=ENTER, 32=SPACE, 50=down_numkey, 52=left_numkey, 54=right_numkey, 56=up_numkey
-        if (k==10) or (k==32) or (k==50) or (k==52) or (k==54) or (k==56):
+        if (k==32):# to filter only desired keys: 10=ENTER, 32=SPACE
             msg = Int8()
             msg.data = k
+            self.get_logger().info('Pressed SPACE: Timestamp BEGIN')
             self.publisher.publish(msg)
-            self.get_logger().info('Pressed %s' %(k))
 
 def main(args=None):
     rclpy.init(args=args)

@@ -33,7 +33,7 @@ def generate_launch_description():
     # Use virtual sensor to emulate JHU sensorized needle
     needle = Node(
         package="trajcontrol",
-        executable="virtual_needle",
+        executable="virtual_sensor",
     )
 
     # Use sensor processing node with final insertion length of 100mm

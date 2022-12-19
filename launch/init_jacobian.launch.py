@@ -14,9 +14,9 @@ from launch_ros.actions import Node
 from launch import LaunchDescription, actions
 from launch.actions import DeclareLaunchArgument
 
-# Launch stage control in mcp mode
+# Launch stage control in simple mode
 # Remember to launch PlusServer connected to Aurora in another terminal
-# Remember to run keypress node (trajcontrol package) in another terminal
+# Remember to launch keypress node (trajcontrol package) in another terminal
 
 def generate_launch_description():
 
@@ -30,10 +30,15 @@ def generate_launch_description():
             }.items()
     )
 
-    # Use virtual sensor to emulate JHU sensorized needle
-    needle = Node(
-        package="trajcontrol",
-        executable="virtual_needle",
+    # Use ros2_igtl_bridge for client with port 18944 and localhost IP
+    aurora = Node(
+        package = "ros2_igtl_bridge",
+        executable = "igtl_node",
+        parameters = [
+            {"RIB_server_ip": "localhost"},
+            {"RIB_port": 18944},
+            {"RIB_type": "client"}
+        ]
     )
 
     # Use sensor processing node with final insertion length of 100mm
@@ -41,8 +46,8 @@ def generate_launch_description():
         package = "trajcontrol",
         executable = "sensor_processing",
         parameters = [
-            {"insertion_length": -100.0}
-            ]
+            {"insertion_length": LaunchConfiguration('insertion_length')}
+        ]
     )
 
     # Use estimator with standard K
@@ -50,26 +55,26 @@ def generate_launch_description():
         package="trajcontrol",
         executable="estimator",
         parameters = [
-            {"save_J": False}
-        ]    
+            {"save_J": True}
+        ]
     ) 
 
-    # Use simple controller (K*J*e)
+    # Use random movement
     controller = Node(
         package = "trajcontrol",
-        executable = "controller_mpc",
+        executable = "controller_rand",
         parameters = [
-            {"insertion_length": -100.0},
-            {"H": LaunchConfiguration('H')},
-            {"filename": LaunchConfiguration('filename')}
-            ]
+            {"insertion_length": LaunchConfiguration('insertion_length')}
+        ]
     )   
 
     # Save data to filename defined by user
     save_file = Node(
         package = "trajcontrol",
         executable = "save_file",
-        parameters =[{"filename": LaunchConfiguration('filename')}]
+        parameters =[
+            {"filename": LaunchConfiguration('filename')}
+        ]
     )
 
     return LaunchDescription([
@@ -80,13 +85,13 @@ def generate_launch_description():
         ),
         actions.LogInfo(msg = ["filename: ", LaunchConfiguration('filename')]),
         DeclareLaunchArgument(
-            "H",
-            default_value = "4",
-            description = "MPC horizon size"
+            "insertion_length",
+            default_value = "-100.0",
+            description = "Expected insertion length for this trial"
         ),
-        actions.LogInfo(msg = ["H: ", LaunchConfiguration('H')]),
+        actions.LogInfo(msg = ["insertion_length: ", LaunchConfiguration('insertion_length')]),
         robot,
-        needle,
+        aurora,
         sensor,
         estimator,
         controller,
