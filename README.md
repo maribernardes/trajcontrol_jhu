@@ -111,7 +111,7 @@ The file defined by 'filename' is a csv with all experimental data and is it sav
 
 ## Communication diagram <a name="comm_diagram"></a>
 
-![alternative text](http://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.github.com/maribernarde/trajcontrol_jhu/main/comm_diagram.txt)
+![alternative text](http://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.github.com/maribernardes/trajcontrol_jhu/main/comm_diagram.txt)
 
 # For 2023 demo:
 ## Launch trajectory control package (robot, needle, sensor_processing, save_file, estimator and controller nodes)
