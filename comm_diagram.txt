@@ -1,9 +1,7 @@
 @startuml
   participant robot
-  participant aurora
-  participant UI
-  participant ros2_igtl_bridge
-
+  participant needle
+  
   box trajcontrol
     participant keypress
     participant sensor_processing
@@ -13,8 +11,7 @@
 
   keypress-->sensor_processing: '/keyboard/key' (Int8)
   keypress->controller: '/keyboard/key' (Int8)
-  aurora -> ros2_igtl_bridge: PlusServer (OpenIGTLink)
-  ros2_igtl_bridge -> sensor_processing: IGTL_TRANSFORM_IN (Transform)
+  needle -> sensor_processing: '/needle/state/current_shape' (PoseArray)
   
   sensor_processing -> estimator: '/sensor/tip' (PoseStamped)
   sensor_processing -> estimator: '/sensor/base' (PoseStamped
