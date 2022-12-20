@@ -1,4 +1,4 @@
-# Package: trajcontrol (version: trajcontrol_lisa)
+# Package: trajcontrol (version: trajcontrol_jhu)
 
 ## Overview
 This repository contains:
