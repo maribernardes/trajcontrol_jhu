@@ -1,31 +1,36 @@
 @startuml
   participant robot
-  participant JHU_needle
+  participant aurora
   participant UI
-  
+  participant ros2_igtl_bridge
+
   box trajcontrol
     participant keypress
+    participant sensor_processing
     participant estimator
     participant controller
-    participant save_file
   end box
 
-  JHU_needle -> estimator: /needle/state/current_shape
-  robot -> estimator: /stage/state/needle_pose
-  estimator --> controller: /needle/state/jacobian
+  keypress-->sensor_processing: '/keyboard/key' (Int8)
+  keypress->controller: '/keyboard/key' (Int8)
+  aurora -> ros2_igtl_bridge: PlusServer (OpenIGTLink)
+  ros2_igtl_bridge -> sensor_processing: IGTL_TRANSFORM_IN (Transform)
+  
+  sensor_processing -> estimator: '/sensor/tip' (PoseStamped)
+  sensor_processing -> estimator: '/sensor/base' (PoseStamped
+  sensor_processing -> controller: '/sensor/tip' (PoseStamped)
+  sensor_processing -> controller: '/sensor/base' (PoseStamped
 
-  keypress->controller: /keyboard/key
-  JHU_needle -> controller: /needle/state/current_shape
-  UI -> controller: /subject/state/skin_entry
-  UI -> controller: /subject/state/target
+  sensor_processing --> controller: '/subject/state/skin_entry' (PointStamped)
+  sensor_processing --> controller: '/subject/state/target' (PointStamped)
+
+  estimator -> controller: '/needle/state/jacobian' (Image: matrix wrapper)
+
+  controller -> robot: '/move_stage' (MoveStage action)
+
+  robot -> sensor_processing: 'stage/state/pose' (PoseStamped)
+
   robot -> controller: /stage/state/needle_pose
+
   controller -> robot: /move_stage
-
-  estimator -> save_file: /needle/state/jacobian
-  controller -> save_file: /stage/control/cmd
-  UI -> save_file: /subject/state/skin_entry
-  UI -> save_file: /subject/state/target
-  JHU_needle -> save_file: /needle/state/current_shape
-  robot -> save_file: /stage/state/needle_pose
-
 @enduml
