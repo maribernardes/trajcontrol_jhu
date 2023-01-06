@@ -6,6 +6,15 @@ This repository contains:
 - ROS2 trajcontrol package (see nodes and message exchanges in [Communication Diagram](#comm_diagram))
 - Launch files for different control tasks for Lisa robot (see details in [Usage](#usage))
 
+## Description
+###Subscribers
+/needle/state/current_shape: "geometry_msgs/msg/PoseArray" - the pose array of the needle shape in 0.5 mm increments
+stage/state/pose: "geometry_msgs/msg/PoseStamped - pose of the robot
+###Publishers
+###Action client
+/move_stage: "stage_control_interfaces/action/MoveStage" - action for moving the robot to given horizontal (x) and vertical (z) positions
+
+
 ## Usage <a name="usage"></a>
 
 Create a workspace and to the src folder, commit the following repositories:
