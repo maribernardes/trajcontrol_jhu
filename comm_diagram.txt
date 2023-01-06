@@ -14,14 +14,14 @@
   needle -> sensor_processing: '/needle/state/current_shape' (PoseArray)
   
   sensor_processing -> estimator: '/sensor/tip' (PoseStamped)
-  sensor_processing -> estimator: '/sensor/base' (PoseStamped
+  sensor_processing -> estimator: '/sensor/base' (PoseStamped)
   sensor_processing -> controller: '/sensor/tip' (PoseStamped)
-  sensor_processing -> controller: '/sensor/base' (PoseStamped
+  sensor_processing -> controller: '/sensor/base' (PoseStamped)
 
-  sensor_processing --> controller: '/subject/state/skin_entry' (PointStamped)
-  sensor_processing --> controller: '/subject/state/target' (PointStamped)
+  sensor_processing --> controller: '/subject/state/skin_entry' (PointStamped): Future UI
+  sensor_processing --> controller: '/subject/state/target' (PointStamped): Future UI
 
-  estimator -> controller: '/needle/state/jacobian' (Image: matrix wrapper)
+  estimator -> controller: '/needle/state/jacobian' (Image: as matrix wrapper)
 
   controller -> robot: '/move_stage' (MoveStage action)
 
@@ -29,5 +29,4 @@
 
   robot -> controller: /stage/state/needle_pose
 
-  controller -> robot: /move_stage
 @enduml
