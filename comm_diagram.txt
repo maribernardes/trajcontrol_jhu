@@ -27,6 +27,4 @@
 
   robot -> sensor_processing: 'stage/state/pose' (PoseStamped)
 
-  robot -> controller: /stage/state/needle_pose
-
 @enduml
