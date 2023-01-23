@@ -8,9 +8,14 @@ This repository contains:
 
 ## Description
 ### Subscribers
+
 /needle/state/current_shape: "geometry_msgs/msg/PoseArray" - the pose array of the needle shape in 0.5 mm increments
+
 stage/state/pose: "geometry_msgs/msg/PoseStamped - pose of the robot
 ### Publishers
+/stage/state/needle_pose: "geometry_msgs/msg/PoseStamped - current absolute insertion depth (x=0.0, y=abs(depth), z=0.0, q=[1,0,0,0])
+
+
 ### Action client
 /move_stage: "stage_control_interfaces/action/MoveStage" - action for moving the robot to given horizontal (x) and vertical (z) positions
 
