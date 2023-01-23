@@ -84,28 +84,28 @@ class Estimator(Node):
 
     # Update Jacobian from current base inputs and tip pose
     def update_jacobian(self):
-        
-        deltaX = (self.X - self.Xant)
-        deltaZ = (self.Z - self.Zant)
-        
-        # Update Jacobian
-        self.J = self.J + self.alpha*np.outer((deltaZ-np.matmul(self.J, deltaX))/(np.matmul(np.transpose(deltaX), deltaX)+1e-9), deltaX)
+        if (self.Z.size != 0): # Wait until needle tip sensor readings are available
+            deltaX = (self.X - self.Xant)
+            deltaZ = (self.Z - self.Zant)
 
-        # Save previous values for next estimation
-        self.Zant = self.Z
-        self.TZant = self.TZ
-        self.Xant = self.X
-        self.TXant = self.TX
+            # Update Jacobian
+            self.J = self.J + self.alpha*np.outer((deltaZ-np.matmul(self.J, deltaX))/(np.matmul(np.transpose(deltaX), deltaX)+1e-9), deltaX)
 
-        # Save updated Jacobian in file
-        if (self.save_J == True):
-            self.get_logger().debug('Save Jacobian transform %s' %(self.J))
-            savetxt(os.path.join(os.getcwd(),'src','trajcontrol','files','jacobian.csv'), asarray(self.J), delimiter=',')
+            # Save previous values for next estimation
+            self.Zant = self.Z
+            self.TZant = self.TZ
+            self.Xant = self.X
+            self.TXant = self.TX
 
-        # Publish current Jacobian
-        msg = CvBridge().cv2_to_imgmsg(self.J)
-        msg.header.stamp = self.get_clock().now().to_msg()
-        self.publisher_jacobian.publish(msg)
+            # Save updated Jacobian in file
+            if (self.save_J == True):
+                self.get_logger().debug('Save Jacobian transform %s' %(self.J))
+                savetxt(os.path.join(os.getcwd(),'src','trajcontrol','files','jacobian.csv'), asarray(self.J), delimiter=',')
+
+            # Publish current Jacobian
+            msg = CvBridge().cv2_to_imgmsg(self.J)
+            msg.header.stamp = self.get_clock().now().to_msg()
+            self.publisher_jacobian.publish(msg)
 
 
 ########################################################################

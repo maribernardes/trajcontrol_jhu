@@ -18,7 +18,6 @@ from scipy.optimize import minimize
 from trajcontrol.sensor_processing import INSERTION_STEP
 from trajcontrol.estimator import get_angles
 
-
 SAFE_LIMIT = 6.0    # Maximum control output delta from entry point [mm]
 DEPTH_MARGIN = 1.5  # Final insertion length margin [mm]
 
@@ -230,12 +229,12 @@ class ControllerMPC(Node):
             cost = objective(u)
 
             # Summarize the result
-            self.get_logger().info('Success : %s' % solution['message'])
-            self.get_logger().info('Status : %s' % solution['message'])
-            self.get_logger().info('Total Evaluations: %d' % solution['nfev'])
-            self.get_logger().info('Final SSE Objective: %f' % (cost)) # calculate cost function with optimization result
-            self.get_logger().info('Elapsed time: %f' % (end_time-start_time))
-            self.get_logger().info('Solution: %s' % (u)) # calculate cost function with optimization result
+            self.get_logger().debug('Success : %s' % solution['message'])
+            self.get_logger().debug('Status : %s' % solution['message'])
+            self.get_logger().debug('Total Evaluations: %d' % solution['nfev'])
+            self.get_logger().debug('Final SSE Objective: %f' % (cost)) # calculate cost function with optimization result
+            self.get_logger().debug('Elapsed time: %f' % (end_time-start_time))
+            self.get_logger().debug('Solution: %s' % (u)) # calculate cost function with optimization result
 
             # Update controller output
             self.cmd[0] = u[0,0]
@@ -249,12 +248,6 @@ class ControllerMPC(Node):
             self.cmd[2] = min(self.cmd[2], self.stage_initial[2]+SAFE_LIMIT)
             self.cmd[2] = max(self.cmd[2], self.stage_initial[2]-SAFE_LIMIT)
 
-            # Test for stage limits
-            self.cmd[0] = min(self.cmd[0], 0.0)
-            self.cmd[0] = max(self.cmd[0], -95.0)
-            self.cmd[2] = min(self.cmd[2], 95.0)
-            self.cmd[2] = max(self.cmd[2], 0.0)
-
             # Expected final error
             exp_err = expected_error(u)
             self.get_logger().info('Expected final error: (%f, %f, %f, %f) ' % (exp_err[0], exp_err[1], exp_err[2], exp_err[3]))
@@ -264,7 +257,7 @@ class ControllerMPC(Node):
             self.cmd[2] = self.stage[2]
             u = np.array([[self.stage[0], self.stage[2]]])
 
-        # # TO MAKE INSERTIONS WITHOUT COMPENSATION (DELETE AFTER)
+        # # TO MAKE INSERTIONS WITHOUT COMPENSATION (DELETE)
         # self.cmd[0] = self.stage_initial[0]
         # self.cmd[2] = self.stage_initial[2]
     
@@ -323,14 +316,7 @@ class ControllerMPC(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-
     controller_mpc = ControllerMPC()
-
-    # global P
-    # global C
-    # P = controller_mpc.get_parameter('P').get_parameter_value().integer_value
-    # C = controller_mpc.get_parameter('C').get_parameter_value().integer_value
-
     rclpy.spin(controller_mpc)
 
     # Destroy the node explicitly

@@ -34,24 +34,23 @@ class SensorProcessing(Node):
 
         #Published topics
         timer_period_entry = 1.0  # seconds
-        self.timer = self.create_timer(timer_period_entry, self.timer_entry_point_callback)        
+        self.timer_entry = self.create_timer(timer_period_entry, self.timer_entry_point_callback)        
         self.publisher_entry_point = self.create_publisher(PointStamped, '/subject/state/skin_entry', 10)
         self.publisher_target = self.create_publisher(PointStamped, '/subject/state/target', 10)
 
-        timer_period_tip = 0.3 # seconds
-        self.timer = self.create_timer(timer_period_tip, self.timer_tip_callback)
+        timer_period = 0.3 # seconds
+        self.timer_tip = self.create_timer(timer_period, self.timer_tip_callback)
+        self.timer_depth = self.create_timer(timer_period, self.timer_depth_callback)        
         self.publisher_tip = self.create_publisher(PoseStamped, '/sensor/tip', 10)
+        ## ADDED: WE ARE PUBLISHING THIS IN PLACE OF THE STAGE (REMOVED LINEAR POTENTIOMETER)
+        # Publishing only the absolute insertion depth (in msg y coordinate)
+        self.publisher_depth = self.create_publisher(PoseStamped,'/stage/state/needle_pose', 10)
 
         # When keyboard SPACE is pressed (no timer)
         self.publisher_base = self.create_publisher(PoseStamped,'/sensor/base', 10)
 
-        # Load registration from file
-        try:
-            self.registration = np.array(loadtxt(os.path.join(os.getcwd(),'src','trajcontrol','files','registration.csv'), delimiter=','))
-        except IOError:
-            self.get_logger().info('Could not find registration.csv file')
-
         #Stored values
+        self.registration = np.empty(shape=[0,7])
         self.entry_point = np.empty(shape=[0,7])    # Tip position at begining of insertion
         self.sensorZ = np.empty(shape=[0,7])        # All stored sensor tip readings as they are sent (for median filter)
         self.Z = np.empty(shape=[0,7])              # Current tip value (filtered) in robot frame
@@ -78,7 +77,7 @@ class SensorProcessing(Node):
         q = np.array([shape[N-1].orientation.w, shape[N-1].orientation.x, shape[N-1].orientation.y, shape[N-1].orientation.z])
 
         ##########################################
-        # TODO: Check use of orientation from shape instead of calculating myself as below
+        # TODO: Check use of orientation from shape instead of calculating from last two points
         ##########################################
         # if (N==1):
         #     q = [0, 0, math.cos(math.pi/4), math.cos(math.pi/4)]
@@ -86,27 +85,36 @@ class SensorProcessing(Node):
         #     ptip = np.array([shape[N-2].position.x, shape[N-2].position.y, shape[N-2].position.z]) #prior to tip
         #     forw = tip - ptip
         #     q = upforw2quat([0, 0, 1], forw)
+        Z_new = np.array([tip[0], tip[1], tip[2], q[0], q[1], q[2], q[3]])
+        
+        ##########################################
+        # TODO: Check need of filtering sensor data
+        ##########################################
+        # # Filter and transform sensor data only after registration was loaded from file
+        # self.sensorZ = np.row_stack((self.sensorZ, Z_new))
+        # # Smooth the measurements with a median filter 
+        # n = self.sensorZ.shape[0]
+        # size_win = min(n, 500) #array window size
+        # if (size_win>0): 
+        #     Z_filt = median_filter(self.sensorZ[n-size_win:n,:], size=(40,1))  # use 40 samples median filter (column-wise)
+        #     Z_new = Z_filt[size_win-1,:]                                       # get last value
+        self.sensorZ = np.copy(Z_new)
 
-        Z_new = np.array([[tip[0], tip[1], tip[2], q[0], q[1], q[2], q[3]]])
-
-        # Filter and transform sensor data only after registration was loaded from file
-        self.sensorZ = np.row_stack((self.sensorZ, Z_new))
-        # Smooth the measurements with a median filter 
-        n = self.sensorZ.shape[0]
-        size_win = min(n, 500) #array window size
-        if (size_win>0): 
-            Z_filt = median_filter(self.sensorZ[n-size_win:n,:], size=(40,1))   # use 40 samples median filter (column-wise)
-            Z_new = Z_filt[size_win-1,:]                                     # get last value
+        ##########################################
+        # TODO: Check new simplified registration
+        ##########################################
         # Transform from sensor to robot frame
         if (self.registration.size != 0): 
             self.Z = pose_transform(Z_new, self.registration)
-
+            self.get_logger().debug('Z = %s' %(self.Z))
+        
     # A keyboard hotkey was pressed 
     def keyboard_callback(self, msg):
         if (self.listen_keyboard == True) and (msg.data == 32): # If listerning to keyboard and hit SPACE key
-            if (self.entry_point.size == 0):    # At needle entry point
-                self.entry_point = self.Z       # Store entry point
-                self.depth = 0.0
+            if (self.entry_point.size == 0):              # At needle entry point
+                self.depth = 0.0                          # Initial value for needle insertion depth
+                self.entry_point = np.array([self.stage[0], self.depth, self.stage[1]])
+                self.registration = np.concatenate((self.entry_point[0:3], np.array([np.cos(np.deg2rad(45)),np.sin(np.deg2rad(45)),0,0]))) # Registration now comes from entry point
             else:
                 self.depth = self.depth + INSERTION_STEP
             # Store current base value
@@ -128,7 +136,7 @@ class SensorProcessing(Node):
             self.get_logger().info('Place the needle at the Entry Point and hit SPACE bar')
             self.listen_keyboard = True
 
-    # Publishes entry point
+    # Publishes entry point and target
     def timer_entry_point_callback(self):
         # Publishes only after experiment started (stored entry point is available)
         if (self.entry_point.size != 0):
@@ -140,9 +148,20 @@ class SensorProcessing(Node):
             msg.point = Point(x=self.entry_point[0], y=self.insertion_length, z=self.entry_point[2])
             self.publisher_target.publish(msg)      #Currently target equals entry point x and z (in the future target will be provided by 3DSlicer)
 
-    # Publishes sensor readings filtered and transformed to robot frame
+    # Publishes insertion depth absolute value (at y value, as in stage frame)
+    def timer_depth_callback (self):
+        # Publish last abs(depth) in robot frame
+        if (self.entry_point.size != 0):
+            msg = PoseStamped()
+            msg.header.stamp = self.get_clock().now().to_msg()
+            msg.header.frame_id = 'stage'
+            msg.pose.position = Point(x=0.0, y=abs(self.depth), z=0.0)
+            msg.pose.orientation = Quaternion(w=1.0, x=0.0, y=0.0, z=0.0)
+            self.publisher_depth.publish(msg)
+            
+    # Publishes needle tip transformed to robot frame
     def timer_tip_callback (self):
-        # Publish last needle filtered pose in robot frame
+        # Publish last needle pose in robot frame
         if (self.Z.size != 0):
             msg = PoseStamped()
             msg.header.stamp = self.get_clock().now().to_msg()

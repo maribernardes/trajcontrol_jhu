@@ -30,10 +30,16 @@ def generate_launch_description():
             }.items()
     )
 
-    # Use virtual sensor to emulate JHU sensorized needle
-    needle = Node(
-        package="trajcontrol",
-        executable="virtual_sensor",
+    # Use needle.launch.py for the needle (sim_level = 1, IP = default, needleParamFile = default)
+    needle = IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(
+                os.path.join(get_package_share_directory('trajcontrol'), 'launch', 'jhu_needle.launch.py')
+            ),
+            launch_arguments = {
+                'sim_level': '1',
+                'interrogatorIP' : '10.0.0.55',
+                'needleParamFile': 'needle_params_2021-08-16_Jig-Calibration_best.json',
+            }.items()
     )
 
     # Use sensor processing node with final insertion length of 100mm
