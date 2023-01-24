@@ -39,7 +39,7 @@ def generate_launch_description():
     )
     arg_params = DeclareLaunchArgument(
         'needleParamFile',
-        default_value = "needle_params_2021-08-16_Jig-Calibration_best.json",
+        default_value = "needle_params_2022-12-11_Jig-Calibration_3CH-4AA-0005.json",
         description = "The shape-sensing needle parameter json file" 
     )                                 
     arg_interrIP = DeclareLaunchArgument(
