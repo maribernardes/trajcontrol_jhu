@@ -61,16 +61,14 @@ sudo /opt/PlusBuild-bin/bin/./PlusServerLauncher
 	b) Launch sequence
 ros2 launch trajcontrol prop_step.launch.py K:=0.05 filename:=NAME 
 _______________________________________________________________________________________
-10) Launch step-wise MPC compensation
-	a) Launch PlusServer
-sudo /opt/PlusBuild-bin/bin/./PlusServerLauncher
-	b) Launch sequence
+10) Launch step-wise MPC compensation with JHU needle
+	a) Launch sequence
 ros2 launch trajcontrol mpc_step.launch.py filename:=NAME 
-	c) Run calibration
+	b) Run calibration
 ros2 run hyperion_interrogator calibrate_sensors --ros-args -r __ns:=/needle
-	d) Launch keyboard node
+	c) Launch keyboard node
 ros2 run trajcontrol keypress
-	e) Use ENTER to start experiment and SPACE to signal each insertion step
+	d) Use ENTER to start experiment and SPACE to signal each insertion step
 
 
 EXTRAS:
@@ -85,5 +83,6 @@ ros2 launch hyperion_interrogator hyperion_streamer.launch.py ip:=10.0.0.55
 ros2 topic echo /needle/sensor/raw
 ros2 topic hz /needle/sensor/raw
 
-
+14) Script to check hyperion interrogator
+python3 plotFBGSpectra.py 10.0.0.55
 

@@ -38,13 +38,15 @@ class SensorProcessing(Node):
         self.publisher_entry_point = self.create_publisher(PointStamped, '/subject/state/skin_entry', 10)
         self.publisher_target = self.create_publisher(PointStamped, '/subject/state/target', 10)
 
-        timer_period = 0.3 # seconds
-        self.timer_tip = self.create_timer(timer_period, self.timer_tip_callback)
-        self.timer_depth = self.create_timer(timer_period, self.timer_depth_callback)        
+        timer_period_tip = 0.3 # seconds
+        self.timer_tip = self.create_timer(timer_period_tip, self.timer_tip_callback)
         self.publisher_tip = self.create_publisher(PoseStamped, '/sensor/tip', 10)
-        ## ADDED: WE ARE PUBLISHING THIS IN PLACE OF THE STAGE (REMOVED LINEAR POTENTIOMETER)
+        
+        ## ADDED: WE ARE PUBLISHING THIS HERE IN PLACE OF THE STAGE (REMOVED LINEAR POTENTIOMETER)
         # Publishing only the absolute insertion depth (in msg y coordinate)
-        self.publisher_depth = self.create_publisher(PoseStamped,'/stage/state/needle_pose', 10)
+        timer_period_needle = 0.3 # seconds
+        self.timer_needle = self.create_timer(timer_period_needle, self.timer_needle_callback)        
+        self.publisher_needle = self.create_publisher(PoseStamped,'/stage/state/needle_pose', 10)
 
         # When keyboard SPACE is pressed (no timer)
         self.publisher_base = self.create_publisher(PoseStamped,'/sensor/base', 10)
@@ -60,6 +62,9 @@ class SensorProcessing(Node):
         self.insertion_length = self.get_parameter('insertion_length').get_parameter_value().double_value
         self.get_logger().info('Final insertion length for this trial: %f' %(self.insertion_length))
 
+        # Print numpy floats with only 3 decimal places
+        np.set_printoptions(formatter={'float': lambda x: "{0:0.4f}".format(x)})
+
     # Get current robot pose
     def robot_callback(self, msg_robot):
         robot = msg_robot.pose
@@ -70,6 +75,7 @@ class SensorProcessing(Node):
     def needle_callback(self, msg_sensor):
          # Get shape from sensorized needle
         shape = msg_sensor.poses
+        self.get_logger().info('Shape received')
         
         # From shape, get measured Z
         N = len(shape)
@@ -106,7 +112,8 @@ class SensorProcessing(Node):
         # Transform from sensor to robot frame
         if (self.registration.size != 0): 
             self.Z = pose_transform(Z_new, self.registration)
-            self.get_logger().debug('Z = %s' %(self.Z))
+            self.get_logger().debug('Zsensor = (%f, %f, %f)' %(self.sensorZ[0],self.sensorZ[1],self.sensorZ[2]))
+            # self.get_logger().info('Zrobot = %s' %(self.Z))
         
     # A keyboard hotkey was pressed 
     def keyboard_callback(self, msg):
@@ -115,6 +122,7 @@ class SensorProcessing(Node):
                 self.depth = 0.0                          # Initial value for needle insertion depth
                 self.entry_point = np.array([self.stage[0], self.depth, self.stage[1]])
                 self.registration = np.concatenate((self.entry_point[0:3], np.array([np.cos(np.deg2rad(45)),np.sin(np.deg2rad(45)),0,0]))) # Registration now comes from entry point
+                self.get_logger().info('Entry point = %s' %(self.entry_point))
             else:
                 self.depth = self.depth + INSERTION_STEP
             # Store current base value
@@ -148,16 +156,17 @@ class SensorProcessing(Node):
             msg.point = Point(x=self.entry_point[0], y=self.insertion_length, z=self.entry_point[2])
             self.publisher_target.publish(msg)      #Currently target equals entry point x and z (in the future target will be provided by 3DSlicer)
 
-    # Publishes insertion depth absolute value (at y value, as in stage frame)
-    def timer_depth_callback (self):
-        # Publish last abs(depth) in robot frame
+    # Publishes needle displacement (x,y,z) in the needle coordinate frame
+    def timer_needle_callback (self):
         if (self.entry_point.size != 0):
             msg = PoseStamped()
             msg.header.stamp = self.get_clock().now().to_msg()
-            msg.header.frame_id = 'stage'
-            msg.pose.position = Point(x=0.0, y=abs(self.depth), z=0.0)
+            msg.header.frame_id = 'needle'
+            msg.pose.position = Point(x=(self.stage[0]-self.entry_point[0]), y=abs(self.depth), z=(self.stage[1]-self.entry_point[2]))
             msg.pose.orientation = Quaternion(w=1.0, x=0.0, y=0.0, z=0.0)
-            self.publisher_depth.publish(msg)
+            self.publisher_needle.publish(msg)
+            self.get_logger().debug('NeedlePose = (%f, %f, %f)' %(msg.pose.position.x, msg.pose.position.y, msg.pose.position.z))
+            
             
     # Publishes needle tip transformed to robot frame
     def timer_tip_callback (self):
@@ -169,6 +178,7 @@ class SensorProcessing(Node):
             msg.pose.position = Point(x=self.Z[0], y=self.Z[1], z=self.Z[2])
             msg.pose.orientation = Quaternion(w=self.Z[3], x=self.Z[4], y=self.Z[5], z=self.Z[6])
             self.publisher_tip.publish(msg)
+            # self.get_logger().info('Tip = %s' %(self.Z))
 
 ########################################################################
 

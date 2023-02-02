@@ -85,20 +85,20 @@ class ControllerMPC(Node):
             # Set stage initial position
             self.stage_initial = np.array([robot.position.x, robot.position.y, robot.position.z])
             self.cmd = np.copy(self.stage_initial) + np.array([0, INSERTION_STEP, 0]) #First command is to make one push without moving the base
-            self.get_logger().info('Stage initial: (%f, %f, %f) ' % (self.stage_initial[0], self.stage_initial[1], self.stage_initial[2]))
+            # self.get_logger().info('Stage initial: (%f, %f, %f) ' % (self.stage_initial[0], self.stage_initial[1], self.stage_initial[2]))
 
             # Control output limits
             limit_x = (float(self.stage_initial[0])-SAFE_LIMIT, float(self.stage_initial[0])+SAFE_LIMIT)
             limit_z = (float(self.stage_initial[2])-SAFE_LIMIT, float(self.stage_initial[2])+SAFE_LIMIT)
             self.limit = [limit_x, limit_z]
-            self.get_logger().info('Stage limit: %s'%(self.limit))
+            # self.get_logger().info('Stage limit: %s'%(self.limit))
 
     # Get current target (only once)
     def target_callback(self, msg):
         if (self.target.size == 0):
             target = msg.point
             self.target = np.array([target.x, target.y, target.z, 0.0, 0.0])
-            self.get_logger().info('Target: (%f, %f, %f, %f, %f) ' % (self.target[0], self.target[1], self.target[2], self.target[3], self.target[4]))
+            # self.get_logger().info('Target: (%f, %f, %f, %f, %f) ' % (self.target[0], self.target[1], self.target[2], self.target[3], self.target[4]))
 
     # Get current needle tip from sensor processing node
     # tip = [x_tip, y_tip, z_tip, angle_horiz, angle_vert]  
@@ -191,9 +191,9 @@ class ControllerMPC(Node):
 
             # Save prediction to mat file
             step = math.floor(self.depth/INSERTION_STEP)
-            self.get_logger().info('=====> step = %i' % step)
-            self.get_logger().info('=====> H = %i' % H)
-            self.get_logger().info('=====> u_hat = %s' % u_hat)
+            # self.get_logger().info('=====> step = %i' % step)
+            # self.get_logger().info('=====> H = %i' % H)
+            # self.get_logger().info('=====> u_hat = %s' % u_hat)
             self.u_pred[step-1,0:H,:] = np.copy(u_hat)
             self.y_pred[step-1,0:H,:] = np.copy(y_hat)
             savemat(self.filename, {'u_pred':self.u_pred, 'y_pred':self.y_pred})
@@ -229,12 +229,12 @@ class ControllerMPC(Node):
             cost = objective(u)
 
             # Summarize the result
-            self.get_logger().debug('Success : %s' % solution['message'])
-            self.get_logger().debug('Status : %s' % solution['message'])
-            self.get_logger().debug('Total Evaluations: %d' % solution['nfev'])
-            self.get_logger().debug('Final SSE Objective: %f' % (cost)) # calculate cost function with optimization result
-            self.get_logger().debug('Elapsed time: %f' % (end_time-start_time))
-            self.get_logger().debug('Solution: %s' % (u)) # calculate cost function with optimization result
+            # self.get_logger().debug('Success : %s' % solution['message'])
+            # self.get_logger().debug('Status : %s' % solution['message'])
+            # self.get_logger().debug('Total Evaluations: %d' % solution['nfev'])
+            # self.get_logger().debug('Final SSE Objective: %f' % (cost)) # calculate cost function with optimization result
+            # self.get_logger().debug('Elapsed time: %f' % (end_time-start_time))
+            # self.get_logger().debug('Solution: %s' % (u)) # calculate cost function with optimization result
 
             # Update controller output
             self.cmd[0] = u[0,0]
@@ -250,7 +250,7 @@ class ControllerMPC(Node):
 
             # Expected final error
             exp_err = expected_error(u)
-            self.get_logger().info('Expected final error: (%f, %f, %f, %f) ' % (exp_err[0], exp_err[1], exp_err[2], exp_err[3]))
+            # self.get_logger().info('Expected final error: (%f, %f, %f, %f) ' % (exp_err[0], exp_err[1], exp_err[2], exp_err[3]))
 
         else:   # Finished all insertion steps
             self.cmd[0] = self.stage[0]
@@ -262,10 +262,10 @@ class ControllerMPC(Node):
         # self.cmd[2] = self.stage_initial[2]
     
         # Print values
-        self.get_logger().info('Applying trajectory compensation... DO NOT insert the needle now\nTip: (%f, %f, %f) \
-            \nTarget: (%f, %f, %f) \nError: (%f, %f, %f) \nDeltaU: (%f, %f)  \nCmd: (%f, %f) \nStage: (%f, %f)' % (self.tip[0],\
-            self.tip[1], self.tip[2], self.target[0], self.target[1], self.target[2], error[0], error[1], error[2],\
-            u[0,0] - self.stage[0], u[0,1] - self.stage[2], self.cmd[0], self.cmd[2], self.stage[0], self.stage[2]))    
+        # self.get_logger().info('Applying trajectory compensation... DO NOT insert the needle now\nTip: (%f, %f, %f) \
+            # \nTarget: (%f, %f, %f) \nError: (%f, %f, %f) \nDeltaU: (%f, %f)  \nCmd: (%f, %f) \nStage: (%f, %f)' % (self.tip[0],\
+            # self.tip[1], self.tip[2], self.target[0], self.target[1], self.target[2], error[0], error[1], error[2],\
+            # u[0,0] - self.stage[0], u[0,1] - self.stage[2], self.cmd[0], self.cmd[2], self.stage[0], self.stage[2]))    
 
         # Send command to stage
         self.robot_idle = False
@@ -290,7 +290,7 @@ class ControllerMPC(Node):
     def goal_response_callback(self, future):
         goal_handle = future.result()
         if not goal_handle.accepted:
-            self.get_logger().info('Goal rejected :(')
+            # self.get_logger().info('Goal rejected :(')
             return
         self._get_result_future = goal_handle.get_result_async()
         self._get_result_future.add_done_callback(self.get_result_callback)
@@ -300,8 +300,8 @@ class ControllerMPC(Node):
         result = future.result().result
         status = future.result().status
         if status == GoalStatus.STATUS_SUCCEEDED:
-            self.get_logger().info('Goal succeeded! Result: %f, %f' %(result.x*1000, result.z*1000))
-            self.get_logger().info('Tip: (%f, %f, %f)'   % (self.tip[0], self.tip[1], self.tip[2]))
+            # self.get_logger().info('Goal succeeded! Result: %f, %f' %(result.x*1000, result.z*1000))
+            # self.get_logger().info('Tip: (%f, %f, %f)'   % (self.tip[0], self.tip[1], self.tip[2]))
              # Check if max depth reached
             # if (abs(self.tip[1]-self.target[1]) <= DEPTH_MARGIN): 
             if (abs(self.depth) >= abs(self.target[1])):

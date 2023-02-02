@@ -36,7 +36,7 @@ def generate_launch_description():
                 os.path.join(get_package_share_directory('trajcontrol'), 'launch', 'jhu_needle.launch.py')
             ),
             launch_arguments = {
-                'sim_level': '1',
+                'sim_level': '2',
                 'interrogatorIP' : '10.0.0.55',
                 'needleParamFile': 'needle_params_2021-08-16_Jig-Calibration_best.json',
             }.items()
