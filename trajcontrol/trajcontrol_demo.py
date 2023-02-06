@@ -82,7 +82,7 @@ class TrajcontrolDemo(Node):
             msg.pose.position = Point(x=(self.stage[0]-self.entry_point[0]), y=(self.stage[1]-self.entry_point[2]), z=-self.depth)
             msg.pose.orientation = Quaternion(w=1.0, x=0.0, y=0.0, z=0.0)
             self.publisher_needle.publish(msg)
-            self.get_logger().info('Base (needle) = [%f, %f, %f]' %(msg.pose.position.x, msg.pose.position.y, msg.pose.position.z)) 
+            self.get_logger().debug('Base (needle) = [%f, %f, %f]' %(msg.pose.position.x, msg.pose.position.y, msg.pose.position.z)) 
 
 ########################################################################
 
