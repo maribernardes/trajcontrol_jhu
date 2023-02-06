@@ -40,6 +40,17 @@ To run in debug mode, include:
 ```bash
   --ros-args --log-level debug
 ```
+#### Demo:
+The trajcontrol demo emulates the needle insertion and robot motion using the keyboard. Open 2 terminals:
+1. Launch trajcontrol demo:
+```bash
+  ros2 run trajcontrol trajcontrol_demo
+```
+2. Run keyboard node:
+```bash
+  ros2 run trajcontrol keypress
+```
+and use the keyboard to signal an insertion step. SPACE key emulates a 5mm insertion step without robot motion, while arrows from the numeric keyboard (2,4,6,8) emulate a 5mm insertion step with 1mm displacement of the robot in the corresponding up-down/left-right directions.
 
 #### Registration procedure:
 To be defined

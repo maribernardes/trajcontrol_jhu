@@ -53,7 +53,7 @@ class SensorProcessing(Node):
 
         #Stored values
         self.registration = np.empty(shape=[0,7])
-        self.entry_point = np.empty(shape=[0,7])    # Tip position at begining of insertion
+        self.entry_point = np.empty(shape=[0,3])    # Tip position at begining of insertion
         self.sensorZ = np.empty(shape=[0,7])        # All stored sensor tip readings as they are sent (for median filter)
         self.Z = np.empty(shape=[0,7])              # Current tip value (filtered) in robot frame
         self.stage = np.empty(shape=[0,2])          # Current stage pose
@@ -162,7 +162,7 @@ class SensorProcessing(Node):
             msg = PoseStamped()
             msg.header.stamp = self.get_clock().now().to_msg()
             msg.header.frame_id = 'needle'
-            msg.pose.position = Point(x=(self.stage[0]-self.entry_point[0]), y=abs(self.depth), z=(self.stage[1]-self.entry_point[2]))
+            msg.pose.position = Point(x=(self.stage[0]-self.entry_point[0]), y=(self.stage[1]-self.entry_point[2]), z=-self.depth)
             msg.pose.orientation = Quaternion(w=1.0, x=0.0, y=0.0, z=0.0)
             self.publisher_needle.publish(msg)
             self.get_logger().debug('NeedlePose = (%f, %f, %f)' %(msg.pose.position.x, msg.pose.position.y, msg.pose.position.z))

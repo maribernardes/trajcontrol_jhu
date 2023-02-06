@@ -37,6 +37,7 @@ setup(
             'controller_mpc = trajcontrol.controller_mpc:main',
             'registration = trajcontrol.registration:main',
             'save_file = trajcontrol.save_file:main',
+            'trajcontrol_demo = trajcontrol.trajcontrol_demo:main',
         ],
     },
 )
