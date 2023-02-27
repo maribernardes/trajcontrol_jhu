@@ -15,7 +15,6 @@ from cv_bridge import CvBridge
 from sensor_msgs.msg import Image
 from stage_control_interfaces.action import MoveStage
 from scipy.optimize import minimize
-from trajcontrol.sensor_processing import INSERTION_STEP
 from trajcontrol.estimator import get_angles
 
 SAFE_LIMIT = 6.0    # Maximum control output delta from entry point [mm]
