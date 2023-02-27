@@ -20,6 +20,7 @@ from trajcontrol.estimator import get_angles
 
 SAFE_LIMIT = 6.0    # Maximum control output delta from entry point [mm]
 DEPTH_MARGIN = 1.5  # Final insertion length margin [mm]
+INSERTION_STEP = -5
 
 class ControllerMPC(Node):
 
@@ -67,7 +68,7 @@ class ControllerMPC(Node):
         self.robot_idle = True                      # Stage move action status
         self.Jc = np.zeros((5,3))
 
-        self.insertion_length = self.get_parameter('insertion_length').get_parameter_value().double_value
+        self.insertion_length = -self.get_parameter('insertion_length').get_parameter_value().double_value # Negative length
         self.H = self.get_parameter('H').get_parameter_value().integer_value
         self.ns = math.floor(self.insertion_length/INSERTION_STEP)
         self.get_logger().info('MPC 3 horizon for this trial: H = %i \n Total insertion: %i steps' %(self.H, self.ns))

@@ -42,12 +42,18 @@ def generate_launch_description():
             }.items()
     )
 
+    # Get depth measurement from Arduino
+    depth = sensor = Node(
+        package = "trajcontrol",
+        executable = "depth_measurement",
+    )
+
     # Use sensor processing node with final insertion length of 100mm
     sensor = Node(
         package = "trajcontrol",
         executable = "sensor_processing",
         parameters = [
-            {"insertion_length": -100.0}
+            {"insertion_length": 100.0}
             ]
     )
 
@@ -65,7 +71,7 @@ def generate_launch_description():
         package = "trajcontrol",
         executable = "controller_mpc",
         parameters = [
-            {"insertion_length": -100.0},
+            {"insertion_length": 100.0},
             {"H": LaunchConfiguration('H')},
             {"filename": LaunchConfiguration('filename')}
             ]
@@ -93,6 +99,7 @@ def generate_launch_description():
         actions.LogInfo(msg = ["H: ", LaunchConfiguration('H')]),
         robot,
         needle,
+        depth.
         sensor,
         estimator,
         controller,

@@ -7,18 +7,20 @@ from rclpy.node import Node
 from std_msgs.msg import Int8
 from geometry_msgs.msg import PoseArray, PoseStamped, Quaternion, Point
 
-INSERTION_LENGTH = 100.0   # Total insertion length = 100mm (negative in stage frame)
-INSERTION_STEP = 5.0       # Insertion depth step = 5mm (negative in stage frame)
 ROBOT_STEP = 1.0            # Robot displacement step = 1mm
 
-class TrajcontrolDemo(Node):
+class TrajcontrolDemoDepth(Node):
 
     def __init__(self):
-        super().__init__('trajcontrol_demo')
+        super().__init__('trajcontrol_demo_depth')
 
         # Topics from sensorized needle node
         self.subscription_sensor = self.create_subscription(PoseArray, '/needle/state/current_shape', self.needle_callback,  10)
         self.subscription_sensor # prevent unused variable warning
+
+        # Topics from Arduino
+        self.subscription_depth = self.create_subscription(Int8, '/arduino/depth', self.depth_callback, 10)
+        self.subscription_depth # prevent unused variable warning
 
         #Topic from keypress node
         self.subscription_keyboard = self.create_subscription(Int8, '/keyboard/key', self.keyboard_callback, 10)
@@ -32,7 +34,7 @@ class TrajcontrolDemo(Node):
         # Robot and needle tip (stage frame)
         self.entry_point = np.empty(shape=[0,3])    # Initial needle_pose
         self.stage = np.empty(shape=[0,2])          # Current stage position
-        self.depth = 0.0                            # Current insertion depth
+        self.depth = None                           # Current insertion depth
         self.registration = np.empty(shape=[0,7])   # Needle to stage coord transformation
         
     # Get current sensor value
@@ -51,18 +53,21 @@ class TrajcontrolDemo(Node):
             Z = pose_transform(sensorZ, self.registration)
             self.get_logger().info('Tip (stage) = [%f, %f, %f]' %( Z[0], Z[1], Z[2]))
 
+    # Get depth value
+    def depth_callback(self, msg):
+        if (self.depth is None):
+            self.get_logger().info('Depth sensor is connected')
+        self.depth = float(msg.data)
+
     def keyboard_callback(self, msg):
         self.get_logger().info('Keyboard input')
         # Update depth and robot positions
-        if (self.entry_point.size == 0):              # Begining of the experiment
-            self.depth = 0.0                          # Initial value for needle insertion depth
+        if ((self.entry_point.size == 0) and (self.depth is not None)):              # Begining of the experiment
             self.stage = np.array([0.050, 0.005])     # Initial robot position
             self.entry_point = np.array([self.stage[0], -self.depth, self.stage[1]])
             self.registration = np.concatenate((self.entry_point[0:3], np.array([np.cos(np.deg2rad(45)),np.sin(np.deg2rad(45)),0,0]))) # Registration now comes from entry point
             self.get_logger().info('Entry point = %s' %(self.entry_point))
         else:   
-            # Update insertion depth
-            self.depth = self.depth + INSERTION_STEP
             # Emulate robot motion with keyboard
             if (msg.data==50):     #Robot down
                 self.stage = self.stage + np.array([0.0, -ROBOT_STEP])
@@ -115,19 +120,24 @@ def pose_transform(x_orig, x_tf):
 def main(args=None):
     rclpy.init(args=args)
 
-    trajcontrol_demo = TrajcontrolDemo()
-    trajcontrol_demo.get_logger().info('**** To START experiment, hit a valid key ****')
+    trajcontrol_demo_depth = TrajcontrolDemoDepth()
+    trajcontrol_demo_depth.get_logger().info('Waiting for depth sensor...')
 
+
+    # Initialize entry point position
     while rclpy.ok():
-        rclpy.spin_once(trajcontrol_demo)
-        if (trajcontrol_demo.depth) >= INSERTION_LENGTH:
-            trajcontrol_demo.get_logger().info('ATTENTION: Insertion depth reached! Please stop insertion') 
+        rclpy.spin_once(trajcontrol_demo_depth)
+        if(trajcontrol_demo_depth.depth is None):
+            pass
+        else:
+            trajcontrol_demo_depth.get_logger().info('**** To START experiment, hit a valid key ****')
             break
+    rclpy.spin(trajcontrol_demo_depth)
 
     # Destroy the node explicitly
     # (optional - otherwise it will be done automatically
     # when the garbage collector destroys the node object)
-    trajcontrol_demo.destroy_node()
+    trajcontrol_demo_depth.destroy_node()
     rclpy.shutdown()
 
 
