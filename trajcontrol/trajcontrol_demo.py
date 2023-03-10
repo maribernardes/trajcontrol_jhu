@@ -7,9 +7,10 @@ from rclpy.node import Node
 from std_msgs.msg import Int8
 from geometry_msgs.msg import PoseArray, PoseStamped, Quaternion, Point
 
-INSERTION_LENGTH = 100.0   # Total insertion length = 100mm (negative in stage frame)
-INSERTION_STEP = 5.0       # Insertion depth step = 5mm (negative in stage frame)
-ROBOT_STEP = 1.0            # Robot displacement step = 1mm
+DEPTH_OFFSET = 195.0                    # Forced initial depth just for testing purposes
+INSERTION_LENGTH = 100.0                # Total insertion length = +100mm (negative in stage frame)
+INSERTION_STEP = 5.0                    # Insertion depth step = +5mm (negative in stage frame)
+ROBOT_STEP = 1.0                        # Robot displacement step = 1mm
 
 class TrajcontrolDemo(Node):
 
@@ -79,7 +80,7 @@ class TrajcontrolDemo(Node):
             msg = PoseStamped()
             msg.header.stamp = self.get_clock().now().to_msg()
             msg.header.frame_id = 'needle'
-            msg.pose.position = Point(x=(self.stage[0]-self.entry_point[0]), y=(self.stage[1]-self.entry_point[2]), z=self.depth+self.entry_point[1])
+            msg.pose.position = Point(x=(self.stage[0]-self.entry_point[0]), y=(self.stage[1]-self.entry_point[2]), z=self.depth+self.entry_point[1]+DEPTH_OFFSET)
             msg.pose.orientation = Quaternion(w=1.0, x=0.0, y=0.0, z=0.0)
             self.publisher_needle.publish(msg)
             self.get_logger().debug('Base (needle) = [%f, %f, %f]' %(msg.pose.position.x, msg.pose.position.y, msg.pose.position.z)) 
@@ -120,6 +121,7 @@ def main(args=None):
 
     while rclpy.ok():
         rclpy.spin_once(trajcontrol_demo)
+        # print('Insertion depth = %f / %f' %(trajcontrol_demo.depth, INSERTION_LENGTH))
         if (trajcontrol_demo.depth) >= INSERTION_LENGTH:
             trajcontrol_demo.get_logger().info('ATTENTION: Insertion depth reached! Please stop insertion') 
             break
