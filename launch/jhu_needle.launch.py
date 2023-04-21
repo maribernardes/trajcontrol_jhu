@@ -27,20 +27,20 @@ def generate_launch_description():
     # Set numChs and numAAs
     numCHs, numAAs = 3, 4
     for arg in sys.argv:
-        if arg.startswith("needleParamFile:="):
-            needleParamFile = arg.split(":=")[1]
+        if arg.startswith('needleParamFile:='):
+            needleParamFile = arg.split(':=')[1]
             numCHs, numAAs = determineCHsAAs(needleParamFile)
 
     # Arguments
     arg_simlevel = DeclareLaunchArgument(
-        "sim_level",
-        default_value ="1",
-        description = "Simulation level: 1 - virtual sensors (demo), 2 - real sensors"
+        'sim_level',
+        default_value ='2',
+        description = 'Simulation level: 1 - virtual sensors (demo), 2 - real sensors'
     )
     arg_params = DeclareLaunchArgument(
         'needleParamFile',
-        default_value = "3CH-4AA-0005_needle_params_2022-01-26_Jig-Calibration_best_weights.json",
-        description = "The shape-sensing needle parameter json file" 
+        default_value = '3CH-4AA-0005_needle_params_2022-01-26_Jig-Calibration_best_weights.json',
+        description = 'The shape-sensing needle parameter json file' 
     )                                 
     arg_interrIP = DeclareLaunchArgument(
         'interrogatorIP', 

@@ -26,7 +26,7 @@ setup(
     entry_points={
         'console_scripts': [
             'keypress = trajcontrol.keypress:main',
-            'depth_measurement = trajcontrol.depthMeasurement:main',
+            'depth_measurement = trajcontrol.depth_measurement:main',
             'sensor_processing = trajcontrol.sensor_processing:main',
             'estimator = trajcontrol.estimator:main',
             'controller_init = trajcontrol.controller_init:main',

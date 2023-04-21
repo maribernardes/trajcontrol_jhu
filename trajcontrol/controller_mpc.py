@@ -85,20 +85,20 @@ class ControllerMPC(Node):
             # Set stage initial position
             self.stage_initial = np.array([robot.position.x, robot.position.y, robot.position.z])
             self.cmd = np.copy(self.stage_initial) + np.array([0, INSERTION_STEP, 0]) #First command is to make one push without moving the base
-            # self.get_logger().info('Stage initial: (%f, %f, %f) ' % (self.stage_initial[0], self.stage_initial[1], self.stage_initial[2]))
+            # self.get_logger().debug('Stage initial: (%f, %f, %f) ' % (self.stage_initial[0], self.stage_initial[1], self.stage_initial[2]))
 
             # Control output limits
             limit_x = (float(self.stage_initial[0])-SAFE_LIMIT, float(self.stage_initial[0])+SAFE_LIMIT)
             limit_z = (float(self.stage_initial[2])-SAFE_LIMIT, float(self.stage_initial[2])+SAFE_LIMIT)
             self.limit = [limit_x, limit_z]
-            # self.get_logger().info('Stage limit: %s'%(self.limit))
+            # self.get_logger().debug('Stage limit: %s'%(self.limit))
 
     # Get current target (only once)
     def target_callback(self, msg):
         if (self.target.size == 0):
             target = msg.point
             self.target = np.array([target.x, target.y, target.z, 0.0, 0.0])
-            # self.get_logger().info('Target: (%f, %f, %f, %f, %f) ' % (self.target[0], self.target[1], self.target[2], self.target[3], self.target[4]))
+            # self.get_logger().debug('Target: (%f, %f, %f, %f, %f) ' % (self.target[0], self.target[1], self.target[2], self.target[3], self.target[4]))
 
     # Get current needle tip from sensor processing node
     # tip = [x_tip, y_tip, z_tip, angle_horiz, angle_vert]  

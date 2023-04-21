@@ -9,10 +9,10 @@ from geometry_msgs.msg import PoseArray, PoseStamped, Quaternion, Point
 
 ROBOT_INIT_X = 50                       # Robot initial horizontal position
 ROBOT_INIT_Z = 5                        # Robot initial vertical position
-DEPTH_OFFSET = 195.0                    # Forced initial depth just for testing purposes
+DEPTH_OFFSET = 0.0                    # Forced initial depth just for testing purposes
 
-INSERTION_LENGTH = 100.0                # Total insertion length = +100mm (negative in stage frame)
-INSERTION_STEP = 5.0                    # Insertion depth step = +5mm (negative in stage frame)
+INSERTION_LENGTH = 200.0                # Total insertion length = +100mm (negative in stage frame)
+INSERTION_STEP = 151                    # Insertion depth step = +5mm (negative in stage frame)
 ROBOT_STEP = 1.0                        # Robot displacement step = 1mm
 
 class TrajcontrolDemo(Node):
@@ -86,7 +86,7 @@ class TrajcontrolDemo(Node):
             msg.pose.position = Point(x=(self.stage[0]-self.entry_point[0]), y=(self.stage[1]-self.entry_point[2]), z=self.depth+self.entry_point[1]+DEPTH_OFFSET)
             msg.pose.orientation = Quaternion(w=1.0, x=0.0, y=0.0, z=0.0)
             self.publisher_needle.publish(msg)
-            self.get_logger().info('Base (needle) = [%f, %f, %f]' %(msg.pose.position.x, msg.pose.position.y, msg.pose.position.z)) 
+            self.get_logger().info('needle_pose (needle) = [%f, %f, %f]' %(msg.pose.position.x, msg.pose.position.y, msg.pose.position.z)) 
 
 ########################################################################
 

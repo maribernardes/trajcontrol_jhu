@@ -38,12 +38,12 @@ def generate_launch_description():
             launch_arguments = {
                 'sim_level': '2',
                 'interrogatorIP' : '10.0.0.55',
-                'needleParamFile': 'needle_params_2021-08-16_Jig-Calibration_best.json',
+                'needleParamFile': '3CH-4AA-0005_needle_params_2022-01-26_Jig-Calibration_best_weights.json',
             }.items()
     )
 
     # Get depth measurement from Arduino
-    depth = sensor = Node(
+    depth = Node(
         package = "trajcontrol",
         executable = "depth_measurement",
     )
@@ -99,7 +99,7 @@ def generate_launch_description():
         actions.LogInfo(msg = ["H: ", LaunchConfiguration('H')]),
         robot,
         needle,
-        depth.
+        depth,
         sensor,
         estimator,
         controller,

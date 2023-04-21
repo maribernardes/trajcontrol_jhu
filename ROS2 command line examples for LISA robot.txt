@@ -86,3 +86,7 @@ ros2 topic hz /needle/sensor/raw
 14) Script to check hyperion interrogator
 python3 plotFBGSpectra.py 10.0.0.55
 
+15a) Run the sensor depth measurement in a given port:
+ros2 run trajcontrol depth_measurement --ros-args -p port:=ttyACM0
+15b) Run the sensor depth measurement in first available port:
+ros2 run trajcontrol depth_measurement
