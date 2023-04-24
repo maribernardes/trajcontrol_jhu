@@ -28,6 +28,7 @@ setup(
             'keypress = trajcontrol.keypress:main',
             'depth_measurement = trajcontrol.depth_measurement:main',
             'sensor_processing = trajcontrol.sensor_processing:main',
+            'sensor_processing_step = trajcontrol.sensor_processing_step:main',
             'estimator = trajcontrol.estimator:main',
             'controller_init = trajcontrol.controller_init:main',
             'controller_manual = trajcontrol.controller_manual:main',

@@ -84,23 +84,24 @@ class Estimator(Node):
 
     # Update Jacobian from current base inputs and tip pose
     def update_jacobian(self):
-        if (self.Z.size != 0): # Wait until needle tip sensor readings are available
+        if (self.Zant.size != 0):
             deltaX = (self.X - self.Xant)
             deltaZ = (self.Z - self.Zant)
-
+            
             # Update Jacobian
-            # TODO: Check update for continuous input of base values (maybe use a counter or minimum depth change?)
-            # if (np.count_nonzero(deltaX)!= 0) and (min(deltaX)>=0.0001): # Avoid division by zero
             self.J = self.J + self.alpha*np.outer((deltaZ-np.matmul(self.J, deltaX))/(np.matmul(np.transpose(deltaX), deltaX)+1e-9), deltaX)
+
             # Save previous values for next estimation
             self.Zant = self.Z
             self.TZant = self.TZ
             self.Xant = self.X
             self.TXant = self.TX
+
             # Save updated Jacobian in file
             if (self.save_J == True):
                 self.get_logger().debug('Save Jacobian transform %s' %(self.J))
                 savetxt(os.path.join(os.getcwd(),'src','trajcontrol','files','jacobian.csv'), asarray(self.J), delimiter=',')
+
             # Publish current Jacobian
             msg = CvBridge().cv2_to_imgmsg(self.J)
             msg.header.stamp = self.get_clock().now().to_msg()

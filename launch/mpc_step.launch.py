@@ -51,7 +51,7 @@ def generate_launch_description():
     # Use sensor processing node with final insertion length of 100mm
     sensor = Node(
         package = "trajcontrol",
-        executable = "sensor_processing",
+        executable = "sensor_processing_step",
         parameters = [
             {"insertion_length": 100.0}
             ]
