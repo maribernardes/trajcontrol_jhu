@@ -61,6 +61,7 @@ class SensorProcessingStep(Node):
         self.Z = np.empty(shape=[0,7])              # Current tip value (filtered) in robot frame
         self.stage = np.empty(shape=[0,2])          # Current stage pose
         self.depth = None                           # Current insertion depth
+        self.initial_depth = None                   # Initial insertion depth
         self.X = np.empty(shape=[0,3])              # Needle base position
         self.insertion_length = self.get_parameter('insertion_length').get_parameter_value().double_value
         self.get_logger().info('Final insertion length for this trial: %f' %(self.insertion_length))
@@ -131,7 +132,10 @@ class SensorProcessingStep(Node):
             if (self.entry_point.size == 0):                        # Initialize needle entry point and insertion depth
                 self.depth = 0.0                          
                 self.entry_point = np.array([self.stage[0], self.depth, self.stage[1]])
-                self.registration = np.concatenate((self.entry_point[0:3], np.array([np.cos(np.deg2rad(45)),np.sin(np.deg2rad(45)),0,0]))) # Registration now comes from entry point
+                q_tf1= np.quaternion(np.cos(np.deg2rad(45)), np.sin(np.deg2rad(45)), 0, 0)
+                q_tf2= np.quaternion(np.cos(np.deg2rad(45)), 0, 0, np.sin(np.deg2rad(45)))
+                q_tf = q_tf1*q_tf2
+                self.registration = np.concatenate(self.entry_point[0:3], np.array([q_tf.w, q_tf.x, q_tf.y, q_tf.z])) # Registration now comes from entry point
                 self.get_logger().info('Entry point = %s' %(self.entry_point))
             # Store current base value
             self.X = np.array([self.stage[0], -self.depth, self.stage[1]])

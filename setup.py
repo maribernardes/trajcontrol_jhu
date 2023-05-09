@@ -39,7 +39,7 @@ setup(
             'registration = trajcontrol.registration:main',
             'save_file = trajcontrol.save_file:main',
             'trajcontrol_demo = trajcontrol.trajcontrol_demo:main',
-            'trajcontrol_demo_depth = trajcontrol.trajcontrol_demo_depth:main',
+            'trajcontrol_demo_step = trajcontrol.trajcontrol_demo_step:main',
         ],
     },
 )
