@@ -69,6 +69,7 @@ class TrajcontrolDemoStep(Node):
         self.entry_point = np.empty(shape=[0,3])    # Tip position at begining of insertion
         self.sensorZ = np.empty(shape=[0,7])        # All stored sensor tip readings as they are sent (for median filter)
         self.Z = np.empty(shape=[0,7])              # Current tip value (filtered) in robot frame
+        self.needle_pose = np.empty(shape=[0,3]) 
         self.stage = np.empty(shape=[0,2])          # Current stage pose
         self.depth = None                           # Current insertion depth
         self.initial_depth = None                   # Initial insertion depth
@@ -146,12 +147,11 @@ class TrajcontrolDemoStep(Node):
                 self.send_cmd(x, z)  
                 
                 # Print for experiment output
-                needle_pose = np.array([self.stage[0]-self.entry_point[0], self.stage[1]-self.entry_point[2], self.depth])
                 self.get_logger().info('*** Insertion step ***')
                 self.get_logger().info('Key = %s' %(key))
                 self.get_logger().info('Base (stage) = %s' %(self.X))
                 self.get_logger().info('Tip (stage) = %s' %(self.Z))
-                self.get_logger().info('Base (needle) = %s' %(needle_pose))
+                self.get_logger().info('Base (needle) = %s' %(self.needle_pose))
                 self.get_logger().info('Tip (needle) = %s' %(self.sensorZ))
 
 
@@ -171,7 +171,7 @@ class TrajcontrolDemoStep(Node):
     def timer_base_callback (self):
         # Publish last needle pose in robot frame
         if (self.stage.size != 0) and (self.depth is not None):
-            self.X = np.array([self.stage[0], -self.depth, self.stage[1]])
+            self.X = np.array([self.stage[0], -self.depth, self.stage[1]]) 
             msg = PoseStamped()
             msg.header.stamp = self.get_clock().now().to_msg()
             msg.header.frame_id = 'stage'
@@ -197,7 +197,10 @@ class TrajcontrolDemoStep(Node):
             msg = PoseStamped()
             msg.header.stamp = self.get_clock().now().to_msg()
             msg.header.frame_id = 'needle'
-            msg.pose.position = Point(x=(self.stage[0]-self.entry_point[0]), y=(self.stage[1]-self.entry_point[2]), z=self.depth)
+            self.needle_pose = np.array([self.stage[1]-self.entry_point[2], -(self.stage[0]-self.entry_point[0]), self.depth])
+            msg.pose.position = Point(x=(self.stage[1]-self.entry_point[2]), y=-(self.stage[0]-self.entry_point[0]), z=self.depth)
+            # msg.pose.position = Point(x=(self.stage[0]-self.entry_point[0]), y=(self.stage[1]-self.entry_point[2]), z=self.depth)
+            #TODO: Transform for rotated the needle
             msg.pose.orientation = Quaternion(w=1.0, x=0.0, y=0.0, z=0.0)
             self.publisher_needle.publish(msg)
             self.get_logger().debug('Needle Pose (needle) = (%f, %f, %f)' %(msg.pose.position.x, msg.pose.position.y, msg.pose.position.z))

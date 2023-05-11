@@ -25,6 +25,9 @@ class SaveFile(Node):
         self.subscription_needle # prevent unused variable warning
 
         #Topics from sensor processing node
+        self.subscription_needlepose = self.create_subscription(PoseStamped, '/stage/state/needle_pose', self.needlepose_callback, 10)
+        self.subscription_needlepose # prevent unused variable warning
+
         self.subscription_sensortip = self.create_subscription(PoseStamped, '/sensor/tip', self.sensortip_callback, 10)
         self.subscription_sensortip # prevent unused variable warning
 
@@ -99,6 +102,7 @@ class SaveFile(Node):
         self.Jtime = [0,0]          # Jacobian sec nanosec
         self.cmd = [0,0,0, 0,0]     # /stage/control/cmd (x,y,z) + sec nanosec (sensor_processing)
         self.stage = [0,0, 0,0]     # stage/state/pose (x,z) + sec nanosec  (stage_control)
+        self.needlepose = [0,0,0,0,0,0,0, 0,0]       #/stage/state/needle_pose (x, y(depth), z, 1, 0, 0, 0) + sec nanosec (sensor_processing)
         self.depth = [0, 0,0]       # /arduino/depth (z) + sec nanosec  (depth_measurement)
         self.key = [0, 0,0]         # /keyboard/key (k) + sec nanosec  (keypress)
         self.get_logger().info('Log data will be saved at %s' %(self.filename))   
@@ -151,6 +155,12 @@ class SaveFile(Node):
         self.stage = [msg.pose.position.x, msg.pose.position.z, int(msg.header.stamp.sec), int(msg.header.stamp.nanosec)]     
         # self.get_logger().info('Received stage' % (self.stage))
 
+    #Get current needlepose (base registered to needle frame)
+    def needlepose_callback(self, msg):
+        needlepose = msg.pose
+        self.needlepose = [needlepose.position.x, needlepose.position.y, needlepose.position.z, \
+            needlepose.orientation.w, needlepose.orientation.x, needlepose.orientation.y, needlepose.orientation.z, int(msg.header.stamp.sec), int(msg.header.stamp.nanosec)]
+
     # Get current insertion depth
     def depth_callback(self, msg):
         now = self.get_clock().now().to_msg()
@@ -180,6 +190,7 @@ class SaveFile(Node):
             self.J[12], self.J[13], self.J[14], self.Jtime[0] , self.Jtime[1], \
             self.cmd[0], self.cmd[1], self.cmd[2], self.cmd[3], self.cmd[4], \
             self.stage[0], self.stage[1], self.stage[2], self.stage[3], \
+            self.needlepose[0], self.needlepose[1], self.needlepose[2], self.needlepose[3], self.needlepose[4], self.needlepose[5], self.needlepose[6], self.needlepose[7], self.needlepose[8],\
             self.depth[0], self.depth[1], self.depth[2], \
             self.key[0], self.key[1], self.key[2], \
             ]
