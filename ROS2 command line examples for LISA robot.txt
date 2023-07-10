@@ -1,6 +1,5 @@
 ROS2 command line for LISA Testbench
 
-
 TO BUILD SYSTEM PACKAGES:
 colcon build --cmake-args -DOpenIGTLink_DIR:PATH=/home/snr/OpenIGTLink-build --symlink-install
 

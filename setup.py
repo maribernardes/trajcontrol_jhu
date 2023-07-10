@@ -40,6 +40,7 @@ setup(
             'save_file = trajcontrol.save_file:main',
             'trajcontrol_demo = trajcontrol.trajcontrol_demo:main',
             'trajcontrol_demo_step = trajcontrol.trajcontrol_demo_step:main',
+            'user_interface = trajcontrol.user_interface:main',
         ],
     },
 )
