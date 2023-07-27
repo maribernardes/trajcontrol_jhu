@@ -27,8 +27,7 @@ setup(
         'console_scripts': [
             'keypress = trajcontrol.keypress:main',
             'depth_measurement = trajcontrol.depth_measurement:main',
-            'sensor_processing = trajcontrol.sensor_processing:main',
-            'sensor_processing_step = trajcontrol.sensor_processing_step:main',
+            'system_interface = trajcontrol.system_interface:main',
             'estimator = trajcontrol.estimator:main',
             'controller_init = trajcontrol.controller_init:main',
             'controller_manual = trajcontrol.controller_manual:main',
@@ -36,11 +35,10 @@ setup(
             'controller_rand = trajcontrol.controller_rand:main',
             'controller_proportional = trajcontrol.controller_proportional:main',
             'controller_mpc = trajcontrol.controller_mpc:main',
-            'registration = trajcontrol.registration:main',
             'save_file = trajcontrol.save_file:main',
             'trajcontrol_demo = trajcontrol.trajcontrol_demo:main',
             'trajcontrol_demo_step = trajcontrol.trajcontrol_demo_step:main',
-            'user_interface = trajcontrol.user_interface:main',
+
         ],
     },
 )
