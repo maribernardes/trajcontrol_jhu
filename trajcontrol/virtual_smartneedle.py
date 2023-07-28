@@ -42,7 +42,7 @@ class VirtualSmartNeedle(Node):
     
         msg = PoseArray()
         msg.header.stamp = now
-        msg.header.frame_id = "needle"
+        msg.header.frame_id = 'needle'
 
         # Populate message with X data from matlab file
         if (self.i < self.sensor.size):

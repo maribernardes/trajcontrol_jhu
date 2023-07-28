@@ -115,24 +115,29 @@ class SystemInterface(Node):
     # Get current sensor measurements
     def needle_callback(self, msg_sensor):
          # Get msg from sensorized needle
-        shape = msg_sensor.poses
-        N = len(shape)
-        timestamp = msg_sensor.header.stamp
+        shape = msg_sensor.poses        
+        N = len(shape) # Package size
         frame_id = msg_sensor.header.frame_id
+        timestamp = msg_sensor.header.stamp
+        # Convert timestamp to a readable format
         now = datetime.datetime.now()
-        timestamp_duration = datetime.timedelta(seconds=timestamp.nanoseconds / 1e9)
+        timestamp_duration = datetime.timedelta(seconds=timestamp.nanosec / 1e9)
         duration_since_epoch = now - timestamp_duration
+        # Get the time_t object from the datetime
         time_t_object = datetime.datetime.fromtimestamp(duration_since_epoch.timestamp())
-        formatted_timestamp = time_t_object.strftime('%Y-%m-%d %H:%M:%S') + '.{:03d}'.format(int(timestamp.nanoseconds % 1e9 / 1e6))
-        print('Formatted Timestamp:', formatted_timestamp)
-        self.shapeheader = formatted_timestamp + ';' +  ';' + str(N) + ';' + frame_id
+        # Format the timestamp with seconds and milliseconds
+        formatted_timestamp = time_t_object.strftime('%Y-%m-%d %H:%M:%S') + '.{:03d}'.format(int(timestamp.nanosec % 1e6 / 1e3))
+        self.get_logger().info('Timestamp: %s' %formatted_timestamp)
+        self.get_logger().info('Frame ID: %s' %frame_id)
+        self.shapeheader = formatted_timestamp + ';' + str(N) + ';' + frame_id
         # Get shape data points
         self.shapedata = []
-        # TODO: Transform from needle to Zframe frame
         for pose in msg_sensor.poses:        
+            # Get next point and transform to zFrame
             point_needle = np.array([pose.position.x, pose.position.y, pose.position.z, pose.orientation.w, pose.orientation.x, pose.orientation.y, pose.orientation.z])  
             point_robot = pose_transform(point_needle, self.needleToRobot)
             point_zFrame = pose_inv_transform(point_robot, self.zFrameToRobot)
+            # Save it in point array
             point = Point()
             point.x = point_zFrame[0]
             point.y = point_zFrame[1]
