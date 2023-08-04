@@ -64,6 +64,8 @@ class TrajcontrolDemoStep(Node):
         self.stage_initial = np.empty(shape=[2,0])  # Stage home position
         self.stage = np.empty(shape=[2,0])          # Current stage pose
         self.robot_idle = False                     # Stage status
+        self.print_sensor = False
+        self.print_robot = False
 
         self.registration = np.empty(shape=[0,7])
         self.entry_point = np.empty(shape=[0,3])    # Tip position at begining of insertion
@@ -90,6 +92,11 @@ class TrajcontrolDemoStep(Node):
             self.get_logger().debug('Initial stage position in (%f, %f)' %(self.stage_initial[0], self.stage_initial[1])) 
         # Stores current robot position
         self.stage = np.array([robot.position.x*1000, robot.position.z*1000])
+        if self.print_robot is True:
+            self.print_robot = False
+            self.print_sensor = True
+            self.get_logger().info('Base (stage) = %s' %(self.X))
+            self.get_logger().info('Base (needle) = %s' %(self.needle_pose))
 
     # Depth value published
     # Initialize and update insertion depth
@@ -113,6 +120,10 @@ class TrajcontrolDemoStep(Node):
         if (self.registration.size != 0): 
             self.Z = pose_transform(Z_new, self.registration)
             self.get_logger().debug('Z (stage) = %s' %(self.Z))
+        if self.print_sensor is True:
+            self.print_sensor = False
+            self.get_logger().info('Tip (stage) = %s' %(self.Z))
+            self.get_logger().info('Tip (needle) = %s' %(self.sensorZ))
 
     # A keyboard hotkey was pressed 
     def keyboard_callback(self, msg):
@@ -125,7 +136,9 @@ class TrajcontrolDemoStep(Node):
                 self.depth = 0.0
                 self.entry_point = np.array([self.stage[0], self.depth, self.stage[1]])
                 self.registration = np.concatenate((self.entry_point[0:3], np.array([np.cos(np.deg2rad(45)),np.sin(np.deg2rad(45)),0,0]))) # Registration now comes from entry point
-                self.get_logger().debug('Entry point = %s' %(self.entry_point))
+                self.get_logger().info('*** Initialization step ***')
+                self.get_logger().info('Entry point = %s' %(self.entry_point))
+                self.get_logger().info('Depth count: %.1fmm. Please insert %.1fmm, then hit key' % (self.depth, -INSERTION_STEP))     
             elif (self.robot_idle == True): # Only takes new control input after converged to previous
                 x = self.stage[0]
                 z = self.stage[1]
@@ -145,15 +158,10 @@ class TrajcontrolDemoStep(Node):
                     key = 'SPACE'
                 # Send command to stage
                 self.send_cmd(x, z)  
-                
                 # Print for experiment output
                 self.get_logger().info('*** Insertion step ***')
                 self.get_logger().info('Key = %s' %(key))
-                self.get_logger().info('Base (stage) = %s' %(self.X))
-                self.get_logger().info('Tip (stage) = %s' %(self.Z))
-                self.get_logger().info('Base (needle) = %s' %(self.needle_pose))
-                self.get_logger().info('Tip (needle) = %s' %(self.sensorZ))
-
+                self.get_logger().info('Depth count: %.1fmm. Please insert %.1fmm, then hit key' % (self.depth, -INSERTION_STEP))    
 
     # Publishes entry point and target
     def timer_entry_point_callback(self):
@@ -213,7 +221,7 @@ class TrajcontrolDemoStep(Node):
         goal_msg.x = float(x*0.001)
         goal_msg.z = float(z*0.001)
         goal_msg.eps = 0.0001
-        self.get_logger().info('Send goal request... Control u: x=%f, z=%f' % (x, z))
+        self.get_logger().debug('Send goal request... Control u: x=%f, z=%f' % (x, z))
 
         # Wait for action server
         self.action_client.wait_for_server()        
@@ -235,7 +243,8 @@ class TrajcontrolDemoStep(Node):
         status = future.result().status
         if status == GoalStatus.STATUS_SUCCEEDED:
             self.robot_idle = True       # Set robot status to IDLE
-            self.get_logger().info('Goal succeeded! Result: {0}'.format(result.x*1000))
+            self.print_robot = True
+            self.get_logger().debug('Goal succeeded! Result: {0}'.format(result.x*1000))
         else:
             self.get_logger().info('Goal failed with status: {0}'.format(status))
 
@@ -293,8 +302,7 @@ def main(args=None):
         if trajcontrol_demo_step.entry_point.size == 0: #No entry point yet
             pass
         else:
-            trajcontrol_demo_step.get_logger().info('*****EXPERIMENT STARTED*****\nEntry Point in (%f, %f, %f)' %(trajcontrol_demo_step.entry_point[0], trajcontrol_demo_step.entry_point[1], trajcontrol_demo_step.entry_point[2]))
-            trajcontrol_demo_step.get_logger().info('Depth count: %.1fmm. Please insert %.1fmm, then hit SPACE' % (trajcontrol_demo_step.depth, INSERTION_STEP))      
+            trajcontrol_demo_step.get_logger().info('*****EXPERIMENT STARTED*****')
             break
 
     rclpy.spin(trajcontrol_demo_step)
