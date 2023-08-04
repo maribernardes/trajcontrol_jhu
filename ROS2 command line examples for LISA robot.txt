@@ -2,6 +2,7 @@ ROS2 command line for LISA Testbench
 
 TO BUILD SYSTEM PACKAGES:
 colcon build --cmake-args -DOpenIGTLink_DIR:PATH=/home/snr/OpenIGTLink-build --symlink-install
+colcon build --cmake-args -DOpenIGTLink_DIR:PATH=/opt/OpenIGTLink-build --symlink-install
 
 
 TO USE DEBUG MODE:
@@ -78,6 +79,16 @@ ros2 run hyperion_interrogator calibrate_sensors --ros-args -r __ns:=/needle
 	c) Launch keyboard node
 ros2 run trajcontrol keypress
 	d) Use ENTER to start experiment and SPACE to signal each insertion step
+
+
+11) Launch test for receiving from Slicer
+ a) Launch bridge
+ ros2 launch ros2_igtl_bridge bridge.launch.py
+ b) Launch sensor processing
+ 
+
+
+
 
 
 EXTRAS:
