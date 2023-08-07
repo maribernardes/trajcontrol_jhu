@@ -17,35 +17,31 @@ class depthMeasurement(Node):
         #Declare node parameters
         self.declare_parameter('port', '') # Depth sensor serial port name
 
-        # #Connect to serial port
-        # portName = self.get_parameter('port').get_parameter_value().string_value
-        # if portName == '':  # No user defined port
-        #     ports = self.getSerialPorts()           # Get all available serial ports
-        #     self.ser = self.connectToSerial(ports)  # Connect to the first port
-        # else:               # With user defined port 
-        #     self.ser = serial.Serial('/dev/' + portName, 57600, timeout=1.0) 
+        #Connect to serial port
+        portName = self.get_parameter('port').get_parameter_value().string_value
+        if portName == '':  # No user defined port
+            ports = self.getSerialPorts()           # Get all available serial ports
+            self.ser = self.connectToSerial(ports)  # Connect to the first port
+        else:               # With user defined port 
+            self.ser = serial.Serial('/dev/' + portName, 57600, timeout=1.0) 
 
         #Published topics
         self.publisher_insertion = self.create_publisher(Int16, '/arduino/depth', 10)
         self.timer_depth = self.create_timer(1.0, self.timer_callback)
 
     def timer_callback (self):
-        # self.ser.reset_input_buffer()
-        # self.ser.write(b'h')
-        # time.sleep(0.001)
-        # data = self.ser.read(3)
-        # line = list(data)   # read a '\n' terminated line
-        # if len(line):
-        #     decoded_bytes = int(data.decode('utf-8'))
-        #     self.get_logger().debug('Depth in mm = %i'  %(decoded_bytes))
-        #     msg = Int16()
-        #     msg.data = int(decoded_bytes)
-        #     self.publisher_insertion.publish(msg)
-        decoded_bytes = int(0)
-        self.get_logger().debug('Depth in mm = %i'  %(decoded_bytes))
-        msg = Int16()
-        msg.data = int(decoded_bytes)
-        self.publisher_insertion.publish(msg)
+        self.ser.reset_input_buffer()
+        self.ser.write(b'h')
+        time.sleep(0.001)
+        data = self.ser.read(3)
+        line = list(data)   # read a '\n' terminated line
+        if len(line):
+            decoded_bytes = int(data.decode('utf-8'))
+            self.get_logger().debug('Depth in mm = %i'  %(decoded_bytes))
+            msg = Int16()
+            msg.data = int(decoded_bytes)
+            self.publisher_insertion.publish(msg)
+
     # Connect to the first available port with 1 second timeout
     def connectToSerial(self, ports):
         if len(ports) > 0:
@@ -87,7 +83,6 @@ def main(args=None):
     # when the garbage collector destroys the node object)
     depth.destroy_node()
     rclpy.shutdown()
-
 
 if __name__ == '__main__':
     main()

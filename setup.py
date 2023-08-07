@@ -27,6 +27,7 @@ setup(
         'console_scripts': [
             'keypress = trajcontrol.keypress:main',
             'depth_measurement = trajcontrol.depth_measurement:main',
+            'virtual_depth_measurement = trajcontrol.virtual_depth_measurement:main',
             'system_interface = trajcontrol.system_interface:main',
             'estimator = trajcontrol.estimator:main',
             'controller_init = trajcontrol.controller_init:main',

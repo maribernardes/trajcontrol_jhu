@@ -2,6 +2,7 @@ import getch
 import rclpy
 import numpy as np
 import quaternion
+import datetime
 
 from rclpy.node import Node
 from std_msgs.msg import Int8, Int16
@@ -61,85 +62,135 @@ class TrajcontrolDemoStep(Node):
         self.publisher_base = self.create_publisher(PoseStamped,'/sensor/base', 10) #(stage frame)       
 
         #Stored values
-        self.stage_initial = np.empty(shape=[2,0])  # Stage home position
-        self.stage = np.empty(shape=[2,0])          # Current stage pose
+        self.needleToRobot = np.empty(shape=[0,7])  # Needle to robot frame transform
+        self.zFrameToRobot = np.empty(shape=[0,7])  # ZFrame to robot frame transform
+        self.shapeheader = None                     # Shape message header to push to 3D Slicer
+        self.shapedata = None                       # Shape message data to push to 3D Slicer
+        self.stage = np.empty(shape=[2,0])          # Current stage position
         self.robot_idle = False                     # Stage status
-        self.print_sensor = False
-        self.print_robot = False
+        self.initialize_insertion = False           # Flag to initialize the insertion
+        self.wait_depth = False                     # Flag to wait for input
+        self.wait_sensor = False                    # Flag to wait for input
+        self.wait_robot = False                     # Flag to wait for input
 
-        self.registration = np.empty(shape=[0,7])
         self.entry_point = np.empty(shape=[0,3])    # Tip position at begining of insertion
         self.sensorZ = np.empty(shape=[0,7])        # All stored sensor tip readings as they are sent (for median filter)
         self.Z = np.empty(shape=[0,7])              # Current tip value (filtered) in robot frame
-        self.needle_pose = np.empty(shape=[0,3]) 
+        self.needle_pose = np.empty(shape=[0,7])    # Robot
         self.stage = np.empty(shape=[0,2])          # Current stage pose
         self.depth = None                           # Current insertion depth
         self.initial_depth = None                   # Initial insertion depth
-        self.X = np.empty(shape=[0,3])              # Needle base position
-        # self.insertion_length = self.get_parameter('insertion_length').get_parameter_value().double_value
-        # self.get_logger().info('Final insertion length for this trial: %f' %(self.insertion_length))
+        self.X = np.empty(shape=[0,7])              # Needle base position
+
+        # Initialize zFrameToRobot transform
+        q_tf = np.quaternion(np.cos(np.deg2rad(45)), np.sin(np.deg2rad(45)), 0, 0)
+        zFrameCenter = np.array([0,0,0])
+        self.zFrameToRobot = np.concatenate((zFrameCenter, np.array([q_tf.w, q_tf.x, q_tf.y, q_tf.z])))
 
         # Print numpy floats with only 3 decimal places
         np.set_printoptions(formatter={'float': lambda x: "{0:0.4f}".format(x)})
 
+    # Depth value published
+    # Update insertion depth and initialize insertion
+    def depth_callback(self, msg):
+        self.depth = float(msg.data)
+        if (self.initialize_insertion is True):
+            self.initialize_insertion = False
+            # Set initial_depth
+            self.initial_depth = self.depth
+            # Set entry_point
+            self.entry_point = np.array([self.stage[0], self.depth-self.initial_depth, self.stage[1]])
+            q_tf1= np.quaternion(np.cos(np.deg2rad(45)), np.sin(np.deg2rad(45)), 0, 0)
+            q_tf2= np.quaternion(np.cos(np.deg2rad(45)), 0, 0, np.sin(np.deg2rad(45)))
+            q_tf = q_tf1*q_tf2
+            # Set needleToRobot frame transform
+            self.needleToRobot = np.concatenate((self.entry_point[0:3], np.array([q_tf.w, q_tf.x, q_tf.y, q_tf.z]))) # Registration now comes from entry point
+            self.get_logger().info('*** Initialization step ***')
+            self.get_logger().info('Entry point = %s' %(self.entry_point))
+            self.get_logger().info('Initial depth = %s' %self.initial_depth)
+            self.get_logger().info('Depth count: %.1fmm. Please insert %.1fmm, then hit key' % (self.depth-self.initial_depth, -INSERTION_STEP))    
+        if (self.wait_depth is True):
+            self.wait_depth = False
+            self.wait_robot = True
+            self.get_logger().info('Depth count: %.1fmm. Please insert additional %.1fmm, then hit key' % (self.depth-self.initial_depth, -INSERTION_STEP))    
+                
+
     # Get current robot pose
     def robot_callback(self, msg_robot):
         robot = msg_robot.pose
-        # Stores robot initial position (only once)
-        if (self.stage_initial.size == 0):
-            self.stage_initial = np.array([robot.position.x*1000, robot.position.z*1000])
+        # Initialize robot
+        if (self.stage.size == 0):
+            stage_initial = np.array([robot.position.x*1000, robot.position.z*1000])
             self.robot_idle = True                  # Initialize robot status
-            self.get_logger().debug('Initial stage position in (%f, %f)' %(self.stage_initial[0], self.stage_initial[1])) 
+            self.get_logger().debug('Initial stage position in (%f, %f)' %(stage_initial[0], stage_initial[1])) 
         # Stores current robot position
         self.stage = np.array([robot.position.x*1000, robot.position.z*1000])
-        if self.print_robot is True:
-            self.print_robot = False
-            self.print_sensor = True
+        # Store current base pose (in robot and needle frames)
+        if (self.needleToRobot.size != 0):
+            needle_q = self.needleToRobot[3:7]
+            self.X = np.array([self.stage[0], -(self.depth-self.initial_depth), self.stage[1], needle_q[0], needle_q[1], needle_q[2], needle_q[3]]) #base in robot frame       
+            self.needle_pose = pose_inv_transform(self.X, self.needleToRobot)   # base in needle frame
+        # Print experimental output
+        if self.wait_robot is True:
+            self.wait_robot = False
+            self.wait_sensor = True
             self.get_logger().info('Base (stage) = %s' %(self.X))
             self.get_logger().info('Base (needle) = %s' %(self.needle_pose))
 
-    # Depth value published
-    # Initialize and update insertion depth
-    def depth_callback(self, msg):
-        if (self.depth is None):    # Update initial depth
-            self.initial_depth = float(msg.data)
-        else:                       # Update depth value
-            self.depth = float(msg.data) - self.initial_depth
-
-    # Get current sensor measurements
+    # Get current needle shape measurements
     def needle_callback(self, msg_sensor):
-        # Get shape from sensorized needle
-        shape = msg_sensor.poses
-        # From shape, get measured Z (needle frame)
-        N = len(shape)
-        tip = np.array([shape[N-1].position.x, shape[N-1].position.y, shape[N-1].position.z])                                   # tip position
-        q = np.array([shape[N-1].orientation.w, shape[N-1].orientation.x, shape[N-1].orientation.y, shape[N-1].orientation.z])  # tip orientation
-        Z_new = np.array([tip[0], tip[1], tip[2], q[0], q[1], q[2], q[3]])  
+         # Get msg from sensorized needle
+        shape = msg_sensor.poses        
+        N = len(shape) # Package size
+        frame_id = msg_sensor.header.frame_id
+        timestamp = msg_sensor.header.stamp
+        # Convert timestamp to a readable format
+        now = datetime.datetime.now()
+        timestamp_duration = datetime.timedelta(seconds=timestamp.nanosec / 1e9)
+        duration_since_epoch = now - timestamp_duration
+        # Get the time_t object from the datetime
+        time_t_object = datetime.datetime.fromtimestamp(duration_since_epoch.timestamp())
+        # Format the timestamp with seconds and milliseconds
+        formatted_timestamp = time_t_object.strftime('%Y-%m-%d %H:%M:%S') + '.{:03d}'.format(int(timestamp.nanosec % 1e6 / 1e3))
+        self.shapeheader = formatted_timestamp + ';' + str(N) + ';' + frame_id
+        # Get shape data points
+        self.shapedata = []
+        for pose in msg_sensor.poses:        
+            # Get next point and transform to zFrame
+            point_needle = np.array([pose.position.x, pose.position.y, pose.position.z, pose.orientation.w, pose.orientation.x, pose.orientation.y, pose.orientation.z])  
+            point_robot = pose_transform(point_needle, self.needleToRobot)
+            point_zFrame = pose_inv_transform(point_robot, self.zFrameToRobot)
+            # Save it in point array
+            point = Point()
+            point.x = point_zFrame[0]
+            point.y = point_zFrame[1]
+            point.z = point_zFrame[2]
+            self.shapedata.append(point)
+        # From shape, get measured Z
+        tip = np.array([shape[N-1].position.x, shape[N-1].position.y, shape[N-1].position.z])  #get tip
+        q = np.array([shape[N-1].orientation.w, shape[N-1].orientation.x, shape[N-1].orientation.y, shape[N-1].orientation.z])
+        Z_new = np.array([tip[0], tip[1], tip[2], q[0], q[1], q[2], q[3]])
         self.sensorZ = np.copy(Z_new)
         # Transform from sensor to robot frame
-        if (self.registration.size != 0): 
-            self.Z = pose_transform(Z_new, self.registration)
-            self.get_logger().debug('Z (stage) = %s' %(self.Z))
-        if self.print_sensor is True:
-            self.print_sensor = False
+        if (self.needleToRobot.size != 0): 
+            self.Z = pose_transform(Z_new, self.needleToRobot)
+            self.get_logger().debug('Zsensor = (%f, %f, %f)' %(self.sensorZ[0],self.sensorZ[1],self.sensorZ[2]))
+        # Print values
+        if self.wait_sensor is True:
+            self.wait_sensor = False
             self.get_logger().info('Tip (stage) = %s' %(self.Z))
             self.get_logger().info('Tip (needle) = %s' %(self.sensorZ))
 
     # A keyboard hotkey was pressed 
     def keyboard_callback(self, msg):
-        if (self.initial_depth is None):
+        if (self.depth is None):
             self.get_logger().info('Wait. Depth sensor is not publishing yet')
         elif (self.stage.size == 0):
             self.get_logger().info('Wait. Stage is not publishing yet')
         elif (self.listen_keyboard == True) : # If listerning to keyboard
-            if (self.entry_point.size == 0) and (msg.data == 32): # SPACE: initialize needle entry point and insertion depth
-                self.depth = 0.0
-                self.entry_point = np.array([self.stage[0], self.depth, self.stage[1]])
-                self.registration = np.concatenate((self.entry_point[0:3], np.array([np.cos(np.deg2rad(45)),np.sin(np.deg2rad(45)),0,0]))) # Registration now comes from entry point
-                self.get_logger().info('*** Initialization step ***')
-                self.get_logger().info('Entry point = %s' %(self.entry_point))
-                self.get_logger().info('Depth count: %.1fmm. Please insert %.1fmm, then hit key' % (self.depth, -INSERTION_STEP))     
-            elif (self.robot_idle == True): # Only takes new control input after converged to previous
+            if (self.needleToRobot.size == 0) and (msg.data == 32):  # SPACE: initialize needle entry point and insertion depth
+                self.initialize_insertion = True
+            elif (self.needleToRobot.size != 0) and (self.robot_idle == True): # Only takes new control input after converged to previous
                 x = self.stage[0]
                 z = self.stage[1]
                 if (msg.data == 50): # move down
@@ -161,7 +212,6 @@ class TrajcontrolDemoStep(Node):
                 # Print for experiment output
                 self.get_logger().info('*** Insertion step ***')
                 self.get_logger().info('Key = %s' %(key))
-                self.get_logger().info('Depth count: %.1fmm. Please insert %.1fmm, then hit key' % (self.depth, -INSERTION_STEP))    
 
     # Publishes entry point and target
     def timer_entry_point_callback(self):
@@ -178,14 +228,14 @@ class TrajcontrolDemoStep(Node):
     # Publishes needle base transformed to robot frame
     def timer_base_callback (self):
         # Publish last needle pose in robot frame
-        if (self.stage.size != 0) and (self.depth is not None):
-            self.X = np.array([self.stage[0], -self.depth, self.stage[1]]) 
+        if (self.X.size != 0):
             msg = PoseStamped()
             msg.header.stamp = self.get_clock().now().to_msg()
             msg.header.frame_id = 'stage'
             msg.pose.position = Point(x=self.X[0], y=self.X[1], z=self.X[2])
-            msg.pose.orientation = Quaternion(w=1.0, x=0.0, y=0.0, z=0.0)
+            msg.pose.orientation = Quaternion(w=self.X[3], x=self.X[4], y=self.X[5], z=self.X[6])
             self.publisher_base.publish(msg)
+            self.get_logger().debug('Base (stage) = %s' %(self.X))
 
     # Publishes needle tip transformed to robot frame
     def timer_tip_callback (self):
@@ -197,21 +247,18 @@ class TrajcontrolDemoStep(Node):
             msg.pose.position = Point(x=self.Z[0], y=self.Z[1], z=self.Z[2])
             msg.pose.orientation = Quaternion(w=self.Z[3], x=self.Z[4], y=self.Z[5], z=self.Z[6])
             self.publisher_tip.publish(msg)
-            self.get_logger().debug('Z (stage) = %s' %(self.Z))
+            self.get_logger().debug('Tip (stage) = %s' %(self.Z))
 
     # Publishes needle displacement (x,y,z) in the needle coordinate frame
     def timer_needle_callback (self):
-        if (self.entry_point.size != 0):
+        if (self.needle_pose.size != 0):
             msg = PoseStamped()
             msg.header.stamp = self.get_clock().now().to_msg()
             msg.header.frame_id = 'needle'
-            self.needle_pose = np.array([self.stage[1]-self.entry_point[2], -(self.stage[0]-self.entry_point[0]), self.depth])
-            msg.pose.position = Point(x=(self.stage[1]-self.entry_point[2]), y=-(self.stage[0]-self.entry_point[0]), z=self.depth)
-            # msg.pose.position = Point(x=(self.stage[0]-self.entry_point[0]), y=(self.stage[1]-self.entry_point[2]), z=self.depth)
-            #TODO: Transform for rotated the needle
-            msg.pose.orientation = Quaternion(w=1.0, x=0.0, y=0.0, z=0.0)
+            msg.pose.position = Point(x=self.needle_pose[0], y=self.needle_pose[1], z=self.needle_pose[2])
+            msg.pose.orientation = Quaternion(w=self.needle_pose[3], x=self.needle_pose[4], y=self.needle_pose[5], z=self.needle_pose[6])
             self.publisher_needle.publish(msg)
-            self.get_logger().debug('Needle Pose (needle) = (%f, %f, %f)' %(msg.pose.position.x, msg.pose.position.y, msg.pose.position.z))
+            self.get_logger().debug('Base (needle) = %s' %(self.needle_pose))
 
     # Send MoveStage action to Stage
     def send_cmd(self, x, z):
@@ -243,7 +290,7 @@ class TrajcontrolDemoStep(Node):
         status = future.result().status
         if status == GoalStatus.STATUS_SUCCEEDED:
             self.robot_idle = True       # Set robot status to IDLE
-            self.print_robot = True
+            self.wait_depth = True
             self.get_logger().debug('Goal succeeded! Result: {0}'.format(result.x*1000))
         else:
             self.get_logger().info('Goal failed with status: {0}'.format(status))
@@ -276,18 +323,41 @@ def pose_transform(x_orig, x_tf):
 
 ########################################################################
 
+# Function: pose_inv_transform
+# DO: Transform pose to new reference frame with inverse transform 
+# Inputs: 
+#   x_origin: pose in original reference frame (numpy array [x, y, z, qw, qx, qy, qz])
+#   x_tf: transformation from original to new frame (numpy array [x, y, z, qw, qx, qy, qz])
+# Output:
+#   x_new: pose in new reference frame (numpy array [x, y, z, qw, qx, qy, qz])
+def pose_inv_transform(x_orig, x_tf):
+
+    #Define frame transformation
+    p_tf = np.quaternion(0, x_tf[0], x_tf[1], x_tf[2])
+    q_tf= np.quaternion(x_tf[3], x_tf[4], x_tf[5], x_tf[6])
+
+    #Define original position and orientation
+    p_orig = np.quaternion(0, x_orig[0], x_orig[1], x_orig[2])
+    q_orig = np.quaternion(x_orig[3], x_orig[4], x_orig[5], x_orig[6])
+
+    #Transform to new frame
+    q_new = q_tf.conj()*q_orig
+    p_new = q_tf.conj()*(p_orig-p_tf)*q_tf
+    x_new = np.array([p_new.x, p_new.y, p_new.z, q_new.w, q_new.x, q_new.y, q_new.z])
+    return x_new
+
+########################################################################
+
 def main(args=None):
     rclpy.init(args=args)
 
     trajcontrol_demo_step = TrajcontrolDemoStep()
     trajcontrol_demo_step.get_logger().info('Waiting for stage and depth sensor...')
 
-    # Wait for stage and sensor publishing
+    # Wait for stage and sensor to start publishing
     while rclpy.ok():
         rclpy.spin_once(trajcontrol_demo_step)
-        if(trajcontrol_demo_step.initial_depth is None) or (trajcontrol_demo_step.stage.size == 0):
-            # trajcontrol_demo_step.get_logger().info(trajcontrol_demo_step.depth)
-            # trajcontrol_demo_step.get_logger().info(trajcontrol_demo_step.stage)
+        if(trajcontrol_demo_step.depth is None) or (trajcontrol_demo_step.stage.size == 0):
             pass
         else:
             trajcontrol_demo_step.get_logger().info('Stage and depth sensor connected. Now place the needle at the Entry Point')
@@ -296,10 +366,10 @@ def main(args=None):
             trajcontrol_demo_step.listen_keyboard = True
             break
 
-    # Initialize entry point position
+    # Initialize insertion
     while rclpy.ok():
         rclpy.spin_once(trajcontrol_demo_step)
-        if trajcontrol_demo_step.entry_point.size == 0: #No entry point yet
+        if trajcontrol_demo_step.needleToRobot.size == 0: # Not initialized yet
             pass
         else:
             trajcontrol_demo_step.get_logger().info('*****EXPERIMENT STARTED*****')

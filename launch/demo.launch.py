@@ -45,7 +45,7 @@ def generate_launch_description():
     # Get depth measurement from Arduino
     depth = Node(
         package = "trajcontrol",
-        executable = "depth_measurement",
+        executable = "virtual_depth_measurement",
     )
 
     # Use sensor processing node with final insertion length of 100mm

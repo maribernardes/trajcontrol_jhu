@@ -23,16 +23,14 @@ class virtualDepthMeasurement(Node):
         self.timer_depth = self.create_timer(1.0, self.timer_callback)
 
         #Internal variable
-        self.depth = None
+        self.depth = 5.0
 
 
     # Initialize and update insertion depth
     def keyboard_callback(self, msg):
-        if (self.depth is None) and (msg.data == 32): # SPACE: initialize needle entry point and insertion depth
-            self.depth = 0.0    
-        elif (self.depth is not None) and ((msg.data == 32) or (msg.data == 50) or (msg.data == 52) or (msg.data == 54) or (msg.data == 56)):
-            self.depth = self.depth - INSERTION_STEP
-
+        if (msg.data == 32) or (msg.data == 50) or (msg.data == 52) or (msg.data == 54) or (msg.data == 56):
+            self.depth = self.depth - INSERTION_STEP    # Insertion step is defined as negative (it is given in robot frame)
+    
     # Publish insertion depth value
     def timer_callback (self):
         if (self.depth is not None):
