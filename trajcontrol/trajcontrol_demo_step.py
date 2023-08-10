@@ -16,6 +16,8 @@ from stage_control_interfaces.action import MoveStage
 ROBOT_STEP = 1.0            # Robot displacement step = 1mm
 INSERTION_STEP = -20.0      # Needle insertion step = 20mm 
 TOTAL_INSERTION = -120.0    # Total needle insertion lenght
+NEEDLE_LENGTH = 200.0       # Needle size
+DEPTH_ERROR = 5.0           # Depth sensor error       
 
 class TrajcontrolDemoStep(Node):
 
@@ -115,8 +117,8 @@ class TrajcontrolDemoStep(Node):
         self.print_values = False                   # Flag to print experiment values after each insertion step
 
         # Fix for getting tip values after insertion step update
-        self.wait_needle_depth = False              # Flag to wait update in needle depth (because it is too slow)
-        self.needle_depth = None                    # Previous insertion step needle depth value
+        self.step_depth = None                      # Expected needle depth value for current insertion step
+        self.wait_needle_depth = False              # Flag to wait update in needle depth (because it is too slow)              
 
 #### Interface initialization ###################################################
 
@@ -137,6 +139,7 @@ class TrajcontrolDemoStep(Node):
             self.initialize_insertion = False
             # Set initial_depth
             self.initial_depth = self.depth
+            self.step_depth = 0.0
             # Set entry_point
             self.entry_point = np.array([self.stage[0], self.depth-self.initial_depth, self.stage[1]])
             q_tf1= np.quaternion(np.cos(np.deg2rad(45)), np.sin(np.deg2rad(45)), 0, 0)
@@ -177,7 +180,7 @@ class TrajcontrolDemoStep(Node):
         self.sensorZ = np.copy(Z_new)
         # Check if data has different depth value (new insertion step)
         if self.wait_needle_depth is True:
-            if (self.sensorZ[2] > (self.needle_depth - 0.5*INSERTION_STEP)):
+            if (abs(self.sensorZ[2] - (self.step_depth+NEEDLE_LENGTH)) < DEPTH_ERROR): #Wait until shape tip at expected depth (with a margin of DEPTH_ERROR)
                 self.wait_needle_depth = False
         if (self.needleToRobot.size != 0):  # Only after initialization
             # Transform from sensor to robot frame
@@ -234,7 +237,7 @@ class TrajcontrolDemoStep(Node):
             elif (self.needleToRobot.size != 0) and (self.robot_idle == True): # Only takes new control input after converged to previous
                 if (self.sensorZ.size != 0):
                     self.wait_needle_depth = True 
-                    self.needle_depth = self.sensorZ[2]
+                    self.step_depth = self.step_depth - INSERTION_STEP
                 x = self.stage[0]
                 z = self.stage[1]
                 if (msg.data == 50): # move down
