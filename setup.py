@@ -39,7 +39,7 @@ setup(
             'save_file = trajcontrol.save_file:main',
             'trajcontrol_demo = trajcontrol.trajcontrol_demo:main',
             'trajcontrol_demo_step = trajcontrol.trajcontrol_demo_step:main',
-            'virtual_smartneedle = trajcontrol.virtual_smartneedle:main',
+            'virtual_smart_needle = trajcontrol.virtual_smart_needle:main',
         ],
     },
 )
