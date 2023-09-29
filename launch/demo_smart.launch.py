@@ -26,6 +26,16 @@ def generate_launch_description():
         executable="template",
     )  
 
+    igtl_bridge = Node(
+        package="ros2_igtl_bridge",
+        executable="igtl_node",
+        parameters=[
+            {"RIB_server_ip":"localhost"},
+            {"RIB_port": 18944},
+            {"RIB_type": "client"}
+        ]
+    )
+
     # If commented, launch needle separetly (good for debugging)
     # # Use needle.launch.py for the needle (sim_level = 1, IP = default, needleParamFile = default)
     # needle = IncludeLaunchDescription(
@@ -76,6 +86,7 @@ def generate_launch_description():
         ),
         actions.LogInfo(msg = ["filename: ", LaunchConfiguration('filename')]),
         robot,
+        igtl_bridge,
         # needle,
         depth,
         interface,

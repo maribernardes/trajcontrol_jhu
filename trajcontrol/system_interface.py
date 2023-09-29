@@ -100,14 +100,15 @@ class SystemInterface(Node):
     def bridge_callback(self, msg_point):
         name = msg_point.name      
         npoints = len(msg_point.pointdata)
-        self.get_logger().info('Message type - %s with %d points' %(name, npoints))
-        if (name == 'PlanningZ') and (npoints == 2): # Name is adjusted in 3DSlicer module
-            skin_entry_zFrame = np.array([msg_point.pointdata[0].x, msg_point.pointdata[0].y, msg_point.pointdata[0].z])
-            target_zFrame = np.array([msg_point.pointdata[1].x, msg_point.pointdata[1].y, msg_point.pointdata[1].z])
-            self.skin_entry = pose_transform(skin_entry_zFrame, self.zFrameToRobot)
-            self.target = pose_transform(target_zFrame, self.zFrameToRobot)
-            self.get_logger().debug('Skin Entry = (%f, %f, %f)' %(self.skin_entry[0],self.skin_entry[1],self.skin_entry[2]))
-            self.get_logger().debug('Target = (%f, %f, %f)' %(self.target[0],self.target[1],self.target[2]))
+        if (name == 'TARGET') and (npoints == 2): # Name is adjusted in 3DSlicer module
+            skin_entry_zFrame = np.array([msg_point.pointdata[0].x, msg_point.pointdata[0].y, msg_point.pointdata[0].z, 1,0,0,0])
+            target_zFrame = np.array([msg_point.pointdata[1].x, msg_point.pointdata[1].y, msg_point.pointdata[1].z, 1,0,0,0])
+            skin_entry_robot = pose_transform(skin_entry_zFrame, self.zFrameToRobot)
+            target_robot = pose_transform(target_zFrame, self.zFrameToRobot)
+            self.skin_entry = skin_entry_robot[0:3]
+            self.target = target_robot[0:3]
+            self.get_logger().info('Skin Entry = (%f, %f, %f)' %(self.skin_entry[0],self.skin_entry[1],self.skin_entry[2]))
+            self.get_logger().info('Target = (%f, %f, %f)' %(self.target[0],self.target[1],self.target[2]))
 
     # Depth value published
     # Initialize and update insertion depth
@@ -180,7 +181,7 @@ class SystemInterface(Node):
         # Transform from sensor to robot frame
         if (self.needleToRobot.size != 0): 
             self.Z = pose_transform(Z_new, self.needleToRobot)
-            self.get_logger().debug('Zsensor = (%f, %f, %f)' %(self.sensorZ[0],self.sensorZ[1],self.sensorZ[2]))
+            # self.get_logger().info('Zsensor = (%f, %f, %f)' %(self.sensorZ[0],self.sensorZ[1],self.sensorZ[2]))
         
     # A keyboard hotkey was pressed 
     def keyboard_callback(self, msg):
@@ -207,7 +208,7 @@ class SystemInterface(Node):
             msg.pose.position = Point(x=self.X[0], y=self.X[1], z=self.X[2])
             msg.pose.orientation = Quaternion(w=1.0, x=0.0, y=0.0, z=0.0)
             self.publisher_base.publish(msg)
-            self.get_logger().info('X (stage) = %s' %(self.X))
+            # self.get_logger().info('X (stage) = %s' %(self.X))
 
     def get_initial_point(self):
         # Display message for entry point acquisition
@@ -260,7 +261,6 @@ class SystemInterface(Node):
             msg.header.frame_id = 'stage'
             msg.pose.position = Point(x=self.X[0], y=self.X[1], z=self.X[2])
             msg.pose.orientation = Quaternion(w=self.X[3], x=self.X[4], y=self.X[5], z=self.X[6])
-            self.get_logger().info('Base (stage) = %s' %(self.X))
             self.publisher_base.publish(msg)
 
     # Publishes needle tip transformed to robot frame
@@ -273,8 +273,7 @@ class SystemInterface(Node):
             msg.pose.position = Point(x=self.Z[0], y=self.Z[1], z=self.Z[2])
             msg.pose.orientation = Quaternion(w=self.Z[3], x=self.Z[4], y=self.Z[5], z=self.Z[6])
             self.publisher_tip.publish(msg)
-            self.get_logger().info('Z (stage) = %s' %(self.Z))
-
+            
     # Publishes needle displacement (x,y,z) in the needle coordinate frame
     def timer_needle_callback (self):
         if (self.needle_pose.size != 0):
@@ -284,8 +283,7 @@ class SystemInterface(Node):
             msg.pose.position = Point(x=self.needle_pose[0], y=self.needle_pose[1], z=self.needle_pose[2])
             msg.pose.orientation = Quaternion(w=self.needle_pose[3], x=self.needle_pose[4], y=self.needle_pose[5], z=self.needle_pose[6])
             self.publisher_needle.publish(msg)
-            self.get_logger().debug('Base (needle) = %s' %(self.needle_pose))
-
+            
 ########################################################################
 
 # Function: pose_transform
