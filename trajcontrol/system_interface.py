@@ -83,7 +83,8 @@ class SystemInterface(Node):
         self.stage = np.empty(shape=[0,2])          # Current stage pose
         self.depth = None                           # Current insertion depth
         self.initial_depth = None                   # Initial insertion depth
-        self.X = np.empty(shape=[0,3])              # Needle base position
+        self.X = np.empty(shape=[0,7])              # Needle base position [robot frame]
+        self.needle_pose = np.empty(shape=[0,7])    # Needle base pose [needle frame]
         self.insertion_length = self.get_parameter('insertion_length').get_parameter_value().double_value
         self.get_logger().info('Final insertion length for this trial: %f' %(self.insertion_length))
 
@@ -242,11 +243,13 @@ class SystemInterface(Node):
             msg.point = Point(x=self.initial_point[0], y=self.initial_point[1], z=self.initial_point[2])
             self.publisher_initial_point.publish(msg)
             # Publish skin entry (robot frame)
-            msg.point = Point(x=self.skin_entry[0], y=self.skin_entry[1], z=self.skin_entry[2])
-            self.publisher_skin_entry.publish(msg) 
+            if (self.skin_entry.size != 0):
+                msg.point = Point(x=self.skin_entry[0], y=self.skin_entry[1], z=self.skin_entry[2])
+                self.publisher_skin_entry.publish(msg) 
             # Publish target (robot frame)
-            msg.point = Point(x=self.target[0], y=self.target[1], z=self.target[2])
-            self.publisher_target.publish(msg) 
+            if (self.target.size != 0):
+                msg.point = Point(x=self.target[0], y=self.target[1], z=self.target[2])
+                self.publisher_target.publish(msg) 
 
     # Publishes needle base transformed to robot frame
     def timer_base_callback (self):

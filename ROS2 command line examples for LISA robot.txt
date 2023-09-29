@@ -1,7 +1,7 @@
 ROS2 command line for LISA Testbench
 
 TO BUILD SYSTEM PACKAGES:
-colcon build --cmake-args -DOpenIGTLink_DIR:PATH=/home/snr/OpenIGTLink-build --symlink-install
+colcon build --cmake-args -DOpenIGTLink_DIR:PATH=/home/snr/OpenIGTLink-build --symlink-install --allow-overriding stage_control_interfaces
 colcon build --cmake-args -DOpenIGTLink_DIR:PATH=/opt/OpenIGTLink-build --symlink-install
 
 
@@ -73,7 +73,9 @@ ros2 run trajcontrol keypress
 
 10) Launch step-wise demo with JHU needle
 	a) Launch sequence
-ros2 launch trajcontrol demo.launch.py filename:=NAME 
+ros2 launch trajcontrol demo_smart.launch.py filename:=NAME 
+	ATTENTION: a2) Launch needle separetly (optional - check is demo_smart has needle commented out)
+ros2 launch trajcontrol jhu_needle.launch.py
 	b) Run calibration
 ros2 run hyperion_interrogator calibrate_sensors --ros-args -r __ns:=/needle
 	c) Launch keyboard node
@@ -84,7 +86,7 @@ ros2 run trajcontrol keypress
 11) Launch test for receiving from Slicer
  a) Launch bridge
  ros2 launch ros2_igtl_bridge bridge.launch.py
- b) Launch sensor processing
+ b) Launch system interface
  
 
 
