@@ -30,7 +30,7 @@ class SystemInterface(Node):
         self.subscription_sensor = self.create_subscription(PoseArray, '/needle/state/current_shape', self.needle_callback,  10)
         self.subscription_sensor # prevent unused variable warning
 
-        #Topics from robot node (LISA robot)
+        #Topics from robot node (robot)
         self.subscription_robot = self.create_subscription(PoseStamped, 'stage/state/pose', self.robot_callback, 10) #CAUTION: no '\'  before topic name
         self.subscription_robot # prevent unused variable warning
 
@@ -200,7 +200,8 @@ class SystemInterface(Node):
                 self.needleToRobot = np.concatenate((self.initial_point[0:3], np.array([q_tf.w, q_tf.x, q_tf.y, q_tf.z]))) # Registration now comes from entry point
                 self.get_logger().info('Initial point = %s' %(self.initial_point))
             # Store current base value
-            self.X = np.array([self.stage[0], -(self.depth-self.initial_depth), self.stage[1]])
+            needle_q = self.needleToRobot[3:7]
+            self.X = np.array([self.stage[0], -(self.depth-self.initial_depth), self.stage[1], needle_q[0], needle_q[1], needle_q[2], needle_q[3]]) #base in robot frame       
             # Publish last base filtered pose in robot frame
             msg = PoseStamped()
             msg.header.stamp = self.get_clock().now().to_msg()
