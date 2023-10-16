@@ -72,7 +72,8 @@ class SystemInterface(Node):
         self.zFrameToRobot = np.empty(shape=[0,7])  # ZFrame to robot frame transform
         self.shapeheader = None                     # Shape message header to push to 3D Slicer
         self.shapedata = None                       # Shape message data to push to 3D Slicer
-
+        self.shapecount = 0
+        
         self.target = np.empty(shape=[0,3])         # Tip position at target
         self.skin_entry = np.empty(shape=[0,3])     # Skin entry point position (from 3D Slicer)
         self.initial_point = np.empty(shape=[0,3])  # Stage position at begining of experiment
@@ -134,6 +135,7 @@ class SystemInterface(Node):
     # Get current sensor measurements
     def needle_callback(self, msg_sensor):
          # Get msg from sensorized needle
+        self.shapecount += 1
         shape = msg_sensor.poses        
         N = len(shape) # Package size
         frame_id = msg_sensor.header.frame_id
@@ -148,7 +150,7 @@ class SystemInterface(Node):
         formatted_timestamp = time_t_object.strftime('%Y-%m-%d %H:%M:%S') + '.{:03d}'.format(int(timestamp.nanosec % 1e6 / 1e3))
         # self.get_logger().info('Timestamp: %s' %formatted_timestamp)
         # self.get_logger().info('Frame ID: %s' %frame_id)
-        self.shapeheader = formatted_timestamp + ';' + str(N) + ';' + frame_id
+        self.shapeheader = formatted_timestamp + ';' +str(self.shapecount) + ';'+ str(N) + ';' + frame_id
         # Get shape data points
         self.shapedata = []
         for pose in msg_sensor.poses:        
@@ -233,6 +235,7 @@ class SystemInterface(Node):
             # Push shape to IGTLBridge
             self.publisher_shapeheader.publish(string_msg)
             self.publisher_shape.publish(pointarray_msg)
+            self.get_logger().info('Shape Publisher #' + str(self.shapecount))
 
     # Publishes initial point and target
     def timer_initialize_callback(self):
