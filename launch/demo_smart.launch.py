@@ -36,10 +36,10 @@ def generate_launch_description():
         ]
     )
 
-    shape = Node(
-        package="ros2_igtl_bridge",
-        executable="igtl_shape_publisher"
-    )
+    # shape = Node(
+    #     package="ros2_igtl_bridge",
+    #     executable="igtl_shape_publisher"
+    # )
 
     # If commented, launch needle separetly (good for debugging)
     # # Use needle.launch.py for the needle (sim_level = 1, IP = default, needleParamFile = default)
@@ -95,7 +95,6 @@ def generate_launch_description():
         depth,
         interface,
         igtl_bridge,
-        shape,
         # needle,
         save_file,
     ])
