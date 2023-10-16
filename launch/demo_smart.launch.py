@@ -36,11 +36,6 @@ def generate_launch_description():
         ]
     )
 
-    # shape = Node(
-    #     package="ros2_igtl_bridge",
-    #     executable="igtl_shape_publisher"
-    # )
-
     # If commented, launch needle separetly (good for debugging)
     # # Use needle.launch.py for the needle (sim_level = 1, IP = default, needleParamFile = default)
     # needle = IncludeLaunchDescription(
@@ -65,7 +60,6 @@ def generate_launch_description():
         package = "trajcontrol",
         executable = "trajcontrol_demo_step"
     )
-
 
     # Use system interface node with final insertion length of 100mm
     interface = Node(
@@ -95,6 +89,5 @@ def generate_launch_description():
         depth,
         interface,
         igtl_bridge,
-        # needle,
         save_file,
     ])
