@@ -61,14 +61,14 @@ def generate_launch_description():
         executable = "trajcontrol_demo_step"
     )
 
-    # Use system interface node with final insertion length of 100mm
-    interface = Node(
-        package = "trajcontrol",
-        executable = "system_interface",
-        parameters = [
-            {"insertion_length": 100.0}
-            ]
-    )
+    # # Use system interface node with final insertion length of 100mm
+    # interface = Node(
+    #     package = "trajcontrol",
+    #     executable = "system_interface",
+    #     parameters = [
+    #         {"insertion_length": 100.0}
+    #         ]
+    # )
 
     # Save data to filename defined by user
     save_file = Node(
@@ -87,7 +87,6 @@ def generate_launch_description():
         robot,
         demo,
         depth,
-        interface,
         igtl_bridge,
         save_file,
     ])
