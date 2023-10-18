@@ -31,6 +31,11 @@ def generate_launch_description():
         executable="mri_tracking_interface",        
     )
 
+    keyboard = Node(
+        package="smart_template",
+        executable="keypress",        
+    )
+
     controller = Node(
         package="trajcontrol",
         executable = "controller_manual_smart",
@@ -41,6 +46,7 @@ def generate_launch_description():
 
     return LaunchDescription([
         robot,
+        keyboard,
         interface, 
         controller
     ])

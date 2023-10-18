@@ -4,7 +4,7 @@
   <name>trajcontrol</name>
   <version>0.0.0</version>
   <description>Needle trajectory compensation</description>
-  <maintainer email="mcostabernardesmatias@bwh.harvard.edu">Mariana Bernardes</maintainer>
+  <maintainer email="maribernardes@gmail.com">Mariana Bernardes</maintainer>
   <license>TODO: License declaration</license>
 
   <depend>python3-numpy</depend>
