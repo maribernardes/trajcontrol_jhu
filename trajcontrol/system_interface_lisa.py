@@ -50,7 +50,7 @@ class SystemInterface(Node):
         # Experiment initial robot position (robot frame)
         timer_period_initialize = 1.0  # seconds
         self.timer_initialize = self.create_timer(timer_period_initialize, self.timer_initialize_callback)        
-        self.publisher_initial_point = self.create_publisher(PointStamped, '/stage/state/initial_point', 10)
+        self.publisher_initial_point = self.create_publisher(PointStamped, '/stage/initial_point', 10)
 
         # Skin entry and target (robot frame)
         timer_period_planning = 1.0  # seconds

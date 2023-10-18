@@ -24,11 +24,11 @@ class ControllerManualSmart(Node):
         self.subscription_keyboard # prevent unused variable warning
 
         #Topics from interface node
-        self.subscription_initial_point = self.create_subscription(PointStamped, '/stage/state/initial_point', self.initial_point_callback, 10)
+        self.subscription_initial_point = self.create_subscription(PointStamped, '/stage/initial_point', self.initial_point_callback, 10)
         self.subscription_initial_point # prevent unused variable warning
 
         #Topics from robot node
-        self.subscription_robot = self.create_subscription(PoseStamped, 'stage/state/pose', self.robot_callback, 10)
+        self.subscription_robot = self.create_subscription(PoseStamped, '/stage/state/guide_pose', self.robot_callback, 10)
         self.subscription_robot # prevent unused variable warning
 
         #Action client 
@@ -46,14 +46,14 @@ class ControllerManualSmart(Node):
         # Stores robot initial position (only once)
         if (self.stage_initial.size == 0):
             initial_point = msg.point
-            self.stage_initial = np.array([initial_point.x*1000, initial_point.z*1000])
+            self.stage_initial = np.array([initial_point.x, initial_point.z])
             self.get_logger().info('Initial position in (%f, %f)' %(self.stage_initial[0], self.stage_initial[1])) 
             self.robot_idle = True                  # Initialize robot status
 
     # Get robot pose
     def robot_callback(self, msg_robot):
         robot = msg_robot.pose
-        self.stage = np.array([robot.position.x*1000, robot.position.z*1000])
+        self.stage = np.array([robot.position.x, robot.position.z])
 
     # A keyboard hotkey was pressed 
     def keyboard_callback(self, msg):
@@ -77,8 +77,8 @@ class ControllerManualSmart(Node):
         # Send command to stage (convert mm to m)
         self.robot_idle = False     # Set robot status to NOT IDLE
         goal_msg = MoveStage.Goal()
-        goal_msg.x = float(x*0.001)
-        goal_msg.z = float(z*0.001)
+        goal_msg.x = float(x)
+        goal_msg.z = float(z)
         goal_msg.eps = 0.0001
         self.get_logger().info('Send goal request... Control u: x=%f, z=%f' % (x, z))
 
@@ -102,7 +102,7 @@ class ControllerManualSmart(Node):
         status = future.result().status
         if status == GoalStatus.STATUS_SUCCEEDED:
             self.robot_idle = True       # Set robot status to IDLE
-            self.get_logger().info('Goal succeeded! Result: {0}'.format(result.x*1000))
+            self.get_logger().info('Goal succeeded! Result: {0}'.format(result.x))
         else:
             self.get_logger().info('Goal failed with status: {0}'.format(status))
 

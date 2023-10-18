@@ -50,7 +50,7 @@ class SystemInterfaceSmart(Node):
         # Experiment initial robot position (robot frame)
         timer_period_initialize = 1.0  # seconds
         self.timer_initialize = self.create_timer(timer_period_initialize, self.timer_initialize_callback)        
-        self.publisher_initial_point = self.create_publisher(PointStamped, '/stage/state/initial_point', 10)
+        self.publisher_initial_point = self.create_publisher(PointStamped, '/stage/initial_point', 10)
 
         # Skin entry and target (robot frame)
         timer_period_planning = 1.0  # seconds
@@ -164,11 +164,11 @@ class SystemInterfaceSmart(Node):
         robot = msg_robot.pose
         # Initialize robot
         if (self.stage.size == 0):
-            stage_initial = np.array([robot.position.x*1000, robot.position.z*1000])
+            stage_initial = np.array([robot.position.x, robot.position.z])
             self.robot_idle = True                  # Initialize robot status
             self.get_logger().debug('Initial stage position in (%f, %f)' %(stage_initial[0], stage_initial[1])) 
         # Stores current robot position
-        self.stage = np.array([robot.position.x*1000, robot.position.z*1000])
+        self.stage = np.array([robot.position.x, robot.position.z])
         # Store current base pose (in robot and needle frames)
         if (self.needleToRobot.size != 0):
             needle_q = self.needleToRobot[3:7]

@@ -16,10 +16,8 @@ from launch import LaunchDescription, actions
 from launch.actions import DeclareLaunchArgument
 from launch.substitutions import ThisLaunchFileDir
 
-
 # Launch stage control in manual mode
 # Remember to launch keypress node (trajcontrol package) in another terminal
-
 
 def generate_launch_description():
 
@@ -28,9 +26,14 @@ def generate_launch_description():
         executable="template",
     )  
 
+    interface = Node(
+        package="smart_template",
+        executable="mri_tracking_interface",        
+    )
+
     controller = Node(
         package="trajcontrol",
-        executable="controller_manual",
+        executable="controller_manual_smart",
     )   
 
     return LaunchDescription([
