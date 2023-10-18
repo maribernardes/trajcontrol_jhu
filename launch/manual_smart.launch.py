@@ -33,10 +33,14 @@ def generate_launch_description():
 
     controller = Node(
         package="trajcontrol",
-        executable="controller_manual_smart",
+        executable = "controller_manual_smart",
+        parameters = [
+            {"motion_step": 1.0}
+            ]
     )   
 
     return LaunchDescription([
-        controller,
         robot,
+        interface, 
+        controller
     ])

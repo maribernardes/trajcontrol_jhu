@@ -7,9 +7,7 @@ from rclpy.action import ActionClient
 from action_msgs.msg import GoalStatus
 
 from geometry_msgs.msg import PoseStamped, PointStamped
-from stage_control_interfaces.action import MoveStage
-
-DELTA_MM = 1.0  #Increment for manual movement
+from smart_control_interfaces.action import MoveStage
 
 class ControllerManualSmart(Node):
 
@@ -17,7 +15,7 @@ class ControllerManualSmart(Node):
         super().__init__('controller_manual_smart')
 
         #Declare node parameters
-        self.declare_parameter('motion_step', DELTA_MM) #Insertion length parameter
+        self.declare_parameter('motion_step', 1.0) #Insertion length parameter
 
         #Topic from keypress node
         self.subscription_keyboard = self.create_subscription(Int8, '/keyboard/key', self.keyboard_callback, 10)
@@ -35,8 +33,8 @@ class ControllerManualSmart(Node):
         self.action_client = ActionClient(self, MoveStage, '/move_stage')
 
         # Stored values
-        self.stage_initial = np.empty(shape=[2,0])  # Stage home position
-        self.stage = np.empty(shape=[2,0])          # Current stage pose
+        self.stage_initial = np.empty(shape=[3,0])  # Stage home position
+        self.stage = np.empty(shape=[3,0])          # Current stage pose
         self.robot_idle = False                     # Stage status
 
         self.motion_step = self.get_parameter('motion_step').get_parameter_value().double_value
@@ -46,21 +44,22 @@ class ControllerManualSmart(Node):
         # Stores robot initial position (only once)
         if (self.stage_initial.size == 0):
             initial_point = msg.point
-            self.stage_initial = np.array([initial_point.x, initial_point.z])
-            self.get_logger().info('Initial position in (%f, %f)' %(self.stage_initial[0], self.stage_initial[1])) 
+            self.stage_initial = np.array([initial_point.x, initial_point.y, initial_point.z])
+            self.get_logger().info('Initial position in (%f, %f, %f)' %(self.stage_initial[0], self.stage_initial[1], self.stage_initial[2])) 
             self.robot_idle = True                  # Initialize robot status
 
     # Get robot pose
     def robot_callback(self, msg_robot):
         robot = msg_robot.pose
-        self.stage = np.array([robot.position.x, robot.position.z])
+        self.stage = np.array([robot.position.x, robot.position.y, robot.position.z])
 
     # A keyboard hotkey was pressed 
     def keyboard_callback(self, msg):
         # Only takes new control input after converged to previous
         if (self.robot_idle == True):
             x = self.stage[0]
-            z = self.stage[1]
+            y = self.stage[1]
+            z = self.stage[2]
             if (msg.data == 50): # move down
                 z = z - self.motion_step
             elif (msg.data == 52): # move left
@@ -69,18 +68,21 @@ class ControllerManualSmart(Node):
                 x = x + self.motion_step
             elif (msg.data == 56): # move up
                 z = z + self.motion_step
+            elif (msg.data == 10): # insert one step
+                y = y + self.motion_step
             # Send command to stage
-            self.send_cmd(x, z)  
+            self.send_cmd(x, y, z)  
 
     # Send MoveStage action to Stage
-    def send_cmd(self, x, z):
+    def send_cmd(self, x, y, z):
         # Send command to stage (convert mm to m)
         self.robot_idle = False     # Set robot status to NOT IDLE
         goal_msg = MoveStage.Goal()
         goal_msg.x = float(x)
+        goal_msg.y = float(y)
         goal_msg.z = float(z)
         goal_msg.eps = 0.0001
-        self.get_logger().info('Send goal request... Control u: x=%f, z=%f' % (x, z))
+        self.get_logger().info('Send goal request... Control u: x=%f, y=%f, z=%f' % (x, y, z))
 
         # Wait for action server
         self.action_client.wait_for_server()        
@@ -102,7 +104,7 @@ class ControllerManualSmart(Node):
         status = future.result().status
         if status == GoalStatus.STATUS_SUCCEEDED:
             self.robot_idle = True       # Set robot status to IDLE
-            self.get_logger().info('Goal succeeded! Result: {0}'.format(result.x))
+            self.get_logger().info('Goal reached: %s' %(result))
         else:
             self.get_logger().info('Goal failed with status: {0}'.format(status))
 
