@@ -1,0 +1,23 @@
+1) Slicer Version:
+
+Mac: worked with 5.3
+Ubuntu: not available yet
+(ZFrameRegistration module fails in 5.3. Check if something to do with SlicerDevelopmentModule)
+(SmartNeedle module fails in 4.11)
+Quick "fix" for testing only: Use 4.11 to save zFrameTransform and then proceed with 5.3 for SmartNeedle module
+
+2) Modules required:
+
+* Installed from extension manager:
+OpenIGTLink
+ZFrameRegistration (with module modification, see bellow)
+SlicerDevelopmentModule
+
+* Installed from repositories:
+CurveMaker: https://github.com/tokjun/CurveMaker.git
+SmartNeedle: https://github.com/maribernardes/SmartNeedle-3DSlicer.git  (TODO: Change to SmartNeedle repository)
+
+3) ZFrameRegistration modification:
+Inside the module, find the folder Resources/zFrame and replace the .vtk model by the horizontal version (in coronal plane)
+
+4)
