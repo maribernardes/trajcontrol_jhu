@@ -265,7 +265,7 @@ class SystemInterface(Node):
             msg.header.stamp = self.get_clock().now().to_msg()
             msg.header.frame_id = 'stage'
             msg.point = Point(x=self.target[0], y=self.target[1], z=self.target[2])
-            self.target.publish(msg)
+            self.publisher_target.publish(msg)
             self.get_logger().debug('Target (stage) = %s' %(self.target))
 
     # Publishes needle base transformed to robot frame

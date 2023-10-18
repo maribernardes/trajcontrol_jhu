@@ -58,7 +58,7 @@ def generate_launch_description():
     # Use system interface node with final insertion length of 100mm
     interface = Node(
         package = "trajcontrol",
-        executable = "system_interface",
+        executable = "system_interface_smart",
         parameters = [
             {"insertion_length": 100.0}
             ]

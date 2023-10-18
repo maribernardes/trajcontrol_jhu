@@ -14,10 +14,10 @@ from scipy.ndimage import median_filter
 
 INSERTION_STEP = -5.0        # 5mm insertion step
 
-class SystemInterface(Node):
+class SystemInterfaceSmart(Node):
 
     def __init__(self):
-        super().__init__('system_interface')
+        super().__init__('system_interface_smart')
 
         #Declare node parameters
         self.declare_parameter('insertion_length', -100.0) #Insertion length parameter
@@ -265,7 +265,7 @@ class SystemInterface(Node):
             msg.header.stamp = self.get_clock().now().to_msg()
             msg.header.frame_id = 'stage'
             msg.point = Point(x=self.target[0], y=self.target[1], z=self.target[2])
-            self.target.publish(msg)
+            self.publisher_target.publish(msg)
             self.get_logger().debug('Target (stage) = %s' %(self.target))
 
     # Publishes needle base transformed to robot frame
@@ -356,7 +356,7 @@ def pose_inv_transform(x_orig, x_tf):
 def main(args=None):
     rclpy.init(args=args)
 
-    system_interface = SystemInterface()
+    system_interface = SystemInterfaceSmart()
     system_interface.get_logger().info('Waiting for stage and depth sensor...')
 
     # Wait for stage and sensor to start publishing
