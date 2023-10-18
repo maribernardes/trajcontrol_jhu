@@ -3,7 +3,7 @@ ROS2 command line for LISA Testbench
 TO BUILD SYSTEM PACKAGES:
 colcon build --cmake-args -DOpenIGTLink_DIR:PATH=/home/snr/OpenIGTLink-build --symlink-install --allow-overriding stage_control_interfaces
 colcon build --cmake-args -DOpenIGTLink_DIR:PATH=/opt/OpenIGTLink-build --symlink-install
-colcon build --cmake-args -DOpenIGTLink_DIR:PATH=/home/snr/OpenIGTLink-build --allow-overriding stage_control_interfaces
+colcon build --cmake-args -DOpenIGTLink_DIR:PATH=/home/snr/OpenIGTLink-build --allow-overriding smart_control_interfaces
 
 
 TO USE DEBUG MODE:
