@@ -55,20 +55,23 @@ def generate_launch_description():
         executable = "virtual_depth_measurement",
     )
 
-    # Use sensor processing node with final insertion length of 100mm
-    demo = Node(
+    # Use system interface node with final insertion length of 100mm
+    interface = Node(
         package = "trajcontrol",
-        executable = "trajcontrol_demo_step"
+        executable = "system_interface",
+        parameters = [
+            {"insertion_length": 100.0}
+            ]
     )
 
-    # # Use system interface node with final insertion length of 100mm
-    # interface = Node(
-    #     package = "trajcontrol",
-    #     executable = "system_interface",
-    #     parameters = [
-    #         {"insertion_length": 100.0}
-    #         ]
-    # )
+    # Use system interface node with final insertion length of 100mm
+    control = Node(
+        package = "trajcontrol",
+        executable = "controller_manual_smart",
+        parameters = [
+            {"motion_step": 1.0}
+            ]
+    )
 
     # Save data to filename defined by user
     save_file = Node(
@@ -85,8 +88,9 @@ def generate_launch_description():
         ),
         actions.LogInfo(msg = ["filename: ", LaunchConfiguration('filename')]),
         robot,
-        demo,
         depth,
+        interface,
+        control,
         igtl_bridge,
         save_file,
     ])
