@@ -26,14 +26,14 @@ def generate_launch_description():
         executable="template",
     )  
 
-    interface = Node(
-        package="smart_template",
-        executable="mri_tracking_interface",        
-    )
-
     keyboard = Node(
         package="smart_template",
         executable="keypress",        
+    )
+    
+    interface = Node(
+        package="smart_template",
+        executable="mri_tracking_interface",        
     )
 
     controller = Node(

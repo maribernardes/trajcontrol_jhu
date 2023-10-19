@@ -70,6 +70,8 @@ class ControllerManualSmart(Node):
                 z = z + self.motion_step
             elif (msg.data == 10): # insert one step
                 y = y + self.motion_step
+            elif (msg.data == 32): # retract one step
+                y = y - self.motion_step
             # Send command to stage
             self.send_cmd(x, y, z)  
 
@@ -105,8 +107,8 @@ class ControllerManualSmart(Node):
         if status == GoalStatus.STATUS_SUCCEEDED:
             self.robot_idle = True       # Set robot status to IDLE
             self.get_logger().info('Goal reached: %s' %(result))
-        else:
-            self.get_logger().info('Goal failed with status: {0}'.format(status))
+        elif result.error_code == 1:
+            self.get_logger().info('Goal failed: TIMETOUT')
 
 def main(args=None):
     rclpy.init(args=args)

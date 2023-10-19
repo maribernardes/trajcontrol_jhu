@@ -25,7 +25,6 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'keypress = trajcontrol.keypress:main',
             'depth_measurement = trajcontrol.depth_measurement:main',
             'virtual_depth_measurement = trajcontrol.virtual_depth_measurement:main',
             'system_interface_smart = trajcontrol.system_interface_smart:main',
