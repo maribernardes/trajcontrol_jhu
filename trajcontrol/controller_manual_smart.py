@@ -105,10 +105,10 @@ class ControllerManualSmart(Node):
         result = future.result().result
         status = future.result().status
         if status == GoalStatus.STATUS_SUCCEEDED:
-            self.robot_idle = True       # Set robot status to IDLE
             self.get_logger().info('Goal reached: %s' %(result))
         elif result.error_code == 1:
             self.get_logger().info('Goal failed: TIMETOUT')
+        self.robot_idle = True       # Set robot status to IDLE
 
 def main(args=None):
     rclpy.init(args=args)
