@@ -32,6 +32,11 @@ def generate_launch_description():
         parameters = [{"motion_step": LaunchConfiguration('motion_step')}]
     )   
 
+    interface = Node(
+        package="smart_template",
+        executable = "mri_tracking_interface"
+    )   
+
     return LaunchDescription([
         DeclareLaunchArgument(
             "motion_step",
@@ -40,5 +45,6 @@ def generate_launch_description():
         ),
         actions.LogInfo(msg = ["motion_step: ", LaunchConfiguration('motion_step')]),
         robot, 
+        interface,
         controller
     ])
