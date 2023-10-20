@@ -1,0 +1,47 @@
+ROS2 command line for SmartTemplate (2DOF)
+
+TO BUILD SYSTEM PACKAGES:
+colcon build --cmake-args -DOpenIGTLink_DIR:PATH=/home/snr/OpenIGTLink-build
+colcon build --cmake-args -DOpenIGTLink_DIR:PATH=/opt/OpenIGTLink-build
+
+TO USE DEBUG MODE:
+--ros-args --log-level debug
+_______________________________________________________________________________________
+1) Launch robot in manual mode
+
+ros2 launch ros2 launch trajcontrol manual_smart.launch.py motion_step:=1.0
+ros2 run smart_template keypress
+
+OBS: 
+motion_step argument is optional (default = 1.0 mm)
+Use numkeyboard arrows to move robot in horizontal and vertical directions. 
+Use ENTER for needle insertion and SPACE for needle retraction.
+_______________________________________________________________________________________
+2) Launch OpenIGTLink demo
+
+***3DSlicer***
+
+
+
+***ROS2 computer***
+
+ros2 launch ros2 launch trajcontrol demo_smart.launch.py
+ros2 run smart_template keypress
+
+OBS: 
+Use numkeyboard arrows to move robot in horizontal and vertical directions. 
+Use ENTER for needle insertion and SPACE for needle retraction.
+_______________________________________________________________________________________
+
+
+EXTRAS:
+
+A) Record bag files:
+ros2 bag record -a -o BAG_NAME
+
+B) Check interrogator topics:
+ros2 topic list
+ros2 topic echo topic_name
+ros2 topic hz topic_name
+
+

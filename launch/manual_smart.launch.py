@@ -16,8 +16,8 @@ from launch import LaunchDescription, actions
 from launch.actions import DeclareLaunchArgument
 from launch.substitutions import ThisLaunchFileDir
 
-# Launch stage control in manual mode
-# Remember to launch keypress node (trajcontrol package) in another terminal
+# Launch SmartTemplate in manual mode
+# Remember to launch keypress node (smart_template package) in another terminal
 
 def generate_launch_description():
 
@@ -26,27 +26,19 @@ def generate_launch_description():
         executable="template",
     )  
 
-    keyboard = Node(
-        package="smart_template",
-        executable="keypress",        
-    )
-    
-    interface = Node(
-        package="smart_template",
-        executable="mri_tracking_interface",        
-    )
-
     controller = Node(
         package="trajcontrol",
         executable = "controller_manual_smart",
-        parameters = [
-            {"motion_step": 1.0}
-            ]
+        parameters = [{"motion_step": LaunchConfiguration('motion_step')}]
     )   
 
     return LaunchDescription([
-        robot,
-        keyboard,
-        interface, 
+        DeclareLaunchArgument(
+            "motion_step",
+            default_value = "1.0",
+            description = "Step size in mm"
+        ),
+        actions.LogInfo(msg = ["motion_step: ", LaunchConfiguration('motion_step')]),
+        robot, 
         controller
     ])

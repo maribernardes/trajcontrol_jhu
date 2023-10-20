@@ -26,59 +26,38 @@ def generate_launch_description():
         executable="template",
     )  
 
+    # Use mri tracking interface
+    interface = Node(
+        package = "smart_template",
+        executable = "mri_tracking_interface",
+    )
+
+    # Create a server bridge
     igtl_bridge = Node(
         package="ros2_igtl_bridge",
         executable="igtl_node",
         parameters=[
             {"RIB_server_ip":"localhost"},
             {"RIB_port": 18944},
-            {"RIB_type": "client"}
+            {"RIB_type": "server"}
         ]
     )
 
-    # If commented, launch needle separetly (good for debugging)
-    # # Use needle.launch.py for the needle (sim_level = 1, IP = default, needleParamFile = default)
-    # needle = IncludeLaunchDescription(
-    #         PythonLaunchDescriptionSource(
-    #             os.path.join(get_package_share_directory('trajcontrol'), 'launch', 'jhu_needle.launch.py')
-    #         ),
-    #         launch_arguments = {
-    #             'sim_level': '2',
-    #             'interrogatorIP' : '10.0.0.55',
-    #             'needleParamFile': '3CH-4AA-0005_needle_params_2022-01-26_Jig-Calibration_best_weights.json',
-    #         }.items()
+    # # Use manual controller
+    # control = Node(
+    #     package = "trajcontrol",
+    #     executable = "controller_manual_smart",
+    #     parameters = [
+    #         {"motion_step": 1.0}
+    #         ]
     # )
 
-    # Get depth measurement
-    depth = Node(
-        package = "trajcontrol",
-        executable = "virtual_depth_measurement",
-    )
-
-    # Use system interface node with final insertion length of 100mm
-    interface = Node(
-        package = "trajcontrol",
-        executable = "system_interface_smart",
-        parameters = [
-            {"insertion_length": 100.0}
-            ]
-    )
-
-    # Use system interface node with final insertion length of 100mm
-    control = Node(
-        package = "trajcontrol",
-        executable = "controller_manual_smart",
-        parameters = [
-            {"motion_step": 1.0}
-            ]
-    )
-
-    # Save data to filename defined by user
-    save_file = Node(
-        package = "trajcontrol",
-        executable = "save_file",
-        parameters =[{"filename": LaunchConfiguration('filename')}]
-    )
+    # # Save data to filename defined by user
+    # save_file = Node(
+    #     package = "trajcontrol",
+    #     executable = "save_file",
+    #     parameters =[{"filename": LaunchConfiguration('filename')}]
+    # )
 
     return LaunchDescription([
         DeclareLaunchArgument(
@@ -88,9 +67,7 @@ def generate_launch_description():
         ),
         actions.LogInfo(msg = ["filename: ", LaunchConfiguration('filename')]),
         robot,
-        depth,
         interface,
-        control,
         igtl_bridge,
-        save_file,
+        # control
     ])
