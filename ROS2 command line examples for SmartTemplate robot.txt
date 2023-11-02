@@ -1,8 +1,7 @@
-ROS2 command line for SmartTemplate (2DOF)
+ROS2 command line for SmartTemplate (3DOF)
 
 TO BUILD SYSTEM PACKAGES:
 colcon build --cmake-args -DOpenIGTLink_DIR:PATH=/home/snr/OpenIGTLink-build
-colcon build --cmake-args -DOpenIGTLink_DIR:PATH=/opt/OpenIGTLink-build
 
 TO USE DEBUG MODE:
 --ros-args --log-level debug
@@ -17,7 +16,7 @@ motion_step argument is optional (default = 1.0 mm)
 Use numkeyboard arrows to move robot in horizontal and vertical directions. 
 Use ENTER for needle insertion and SPACE for needle retraction.
 _______________________________________________________________________________________
-2) Launch OpenIGTLink demo
+2) Launch OpenIGTLink demo (manual control)
 
 ***3DSlicer***
 
@@ -25,10 +24,27 @@ ________________________________________________________________________________
 
 ***ROS2 computer***
 
-ros2 launch ros2 launch trajcontrol demo_smart.launch.py
+ros2 launch ros2 launch trajcontrol openigtlink_demo_smart.launch.py
 ros2 run smart_template keypress
 
 OBS: 
+Use numkeyboard arrows to move robot in horizontal and vertical directions. 
+Use ENTER for needle insertion and SPACE for needle retraction.
+_______________________________________________________________________________________
+3) Launch Smart Needle demo (manual control)
+
+***3DSlicer***
+(This is optional)
+
+
+***ROS2 computer***
+
+ros2 launch ros2 launch trajcontrol smartneedle_demo_smart.launch.py
+ros2 run smart_template keypress
+
+OBS: 
+use_slicer argument is optional (default = False)
+insertion_length argument is optional when use_slicer is False (default = 10.0)
 Use numkeyboard arrows to move robot in horizontal and vertical directions. 
 Use ENTER for needle insertion and SPACE for needle retraction.
 _______________________________________________________________________________________

@@ -1,16 +1,17 @@
+SMART NEEDLE MODULE
+
 1) Slicer Version:
 
-Mac: worked with 5.3
-Ubuntu: not available yet
-(ZFrameRegistration module fails in 5.3. Check if something to do with SlicerDevelopmentModule)
-(SmartNeedle module fails in 4.11)
-Quick "fix" for testing only: Use 4.11 to save zFrameTransform and then proceed with 5.3 for SmartNeedle module
+Mac: worked with Slicer 5.3
+Ubuntu: worked with Slicer 5.3 in the Dell notebook
+(SmartNeedle module fails in Slicer 4.11 or older)
+(ZFrameRegistration module fails in Slicer 5.3 for LISA computer) - For now, use Dell notebook for running 3DSlicer
 
 2) Modules required:
 
 * Installed from extension manager:
 OpenIGTLink
-ZFrameRegistration (with module modification, see bellow)
+ZFrameRegistration (with module modification, see (3) bellow)
 SlicerDevelopmentModule
 
 * Installed from repositories:
@@ -20,4 +21,30 @@ SmartNeedle: https://github.com/maribernardes/SmartNeedle-3DSlicer.git  (TODO: C
 3) ZFrameRegistration modification:
 Inside the module, find the folder Resources/zFrame and replace the .vtk model by the horizontal version (in coronal plane)
 
-4)
+
+############################################################
+
+AI NEEDLE TRACKING MODULE
+
+1) Slicer Version:
+
+Mac: worked with Slicer 5.3
+Ubuntu: worked with Slicer 5.3 in the Dell notebook (not testing in LISA computer due to known ZFrameRegistration issue)
+(SmartNeedle module fails in Slicer 4.11 or older)
+(ZFrameRegistration module fails in Slicer 5.3 for LISA computer) - For now, use Dell notebook for running 3DSlicer
+
+2) Modules required:
+* Installed from extension manager:
+OpenIGTLink
+ZFrameRegistration (with module modification, see (3) bellow)
+Pytorch Utils
+
+* Installed from repositories:
+AI Needle Tracking: https://github.com/maribernardes/AINeedleTracking-3DSlicer
+Tracker Stabilizer: https://github.com/maribernardes/Slicer-TrackerStabilizer-3DSlicer (TODO: Change to https://github.com/lchauvin/Slicer-TrackerStabilizer when they updated Qt5 modifications)
+
+* Pip install inside 3D Slicer Python Interactor:
+slicer.util.pip_install('monai[all]')
+
+3) ZFrameRegistration modification:
+Inside the module, find the folder Resources/zFrame and replace the .vtk model by the horizontal version (in coronal plane)
