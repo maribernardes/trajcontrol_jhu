@@ -26,6 +26,11 @@ def generate_launch_description():
         executable="template",
     )  
 
+    # virtual_robot = Node(
+    #     package="smart_template",
+    #     executable="virtual_template",
+    # )  
+
     manual_control = Node(
         package="trajcontrol",
         executable = "controller_manual_smart",
