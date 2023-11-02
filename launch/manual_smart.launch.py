@@ -26,15 +26,15 @@ def generate_launch_description():
         executable="template",
     )  
 
-    controller = Node(
+    manual_control = Node(
         package="trajcontrol",
         executable = "controller_manual_smart",
         parameters = [{"motion_step": LaunchConfiguration('motion_step')}]
     )   
 
-    interface = Node(
+    initialization = Node(
         package="smart_template",
-        executable = "mri_tracking_interface"
+        executable = "initialization"
     )   
 
     return LaunchDescription([
@@ -45,6 +45,6 @@ def generate_launch_description():
         ),
         actions.LogInfo(msg = ["motion_step: ", LaunchConfiguration('motion_step')]),
         robot, 
-        interface,
-        controller
+        initialization,
+        manual_control
     ])

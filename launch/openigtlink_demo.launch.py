@@ -15,7 +15,7 @@ from launch import LaunchDescription, actions
 from launch.actions import DeclareLaunchArgument
 
 # Launch stage control in mcp mode
-# Remember to launch PlusServer connected to Aurora in another terminal
+# Remember to launch bridge server in another terminal
 # Remember to run keypress node (trajcontrol package) in another terminal
 
 def generate_launch_description():
@@ -27,30 +27,36 @@ def generate_launch_description():
     )  
 
     # Use mri tracking interface
-    interface = Node(
+    mritracking_interface = Node(
         package = "smart_template",
         executable = "mri_tracking_interface",
     )
 
-    # Create a server bridge
-    igtl_bridge = Node(
-        package="ros2_igtl_bridge",
-        executable="igtl_node",
-        parameters=[
-            {"RIB_server_ip":"localhost"},
-            {"RIB_port": 18944},
-            {"RIB_type": "server"}
-        ]
+    # Use keyboard interface
+    initialization = Node(
+        package = "smart_template",
+        executable = "initialization",
     )
 
-    # # Use manual controller
-    # control = Node(
-    #     package = "trajcontrol",
-    #     executable = "controller_manual_smart",
-    #     parameters = [
-    #         {"motion_step": 1.0}
-    #         ]
-    # )
+    # Use planning interface
+    planning= Node(
+        package = "trajcontrol",
+        executable = "planning",
+        parameters = [
+            {"use_slicer": False},
+            {"air_gap": 1.0},
+            {"insertion_length": 15.0}
+            ]
+    )
+
+    # Use manual controller
+    manual_control = Node(
+        package = "trajcontrol",
+        executable = "controller_manual_smart",
+        parameters = [
+            {"motion_step": 1.0}
+            ]
+    )
 
     # # Save data to filename defined by user
     # save_file = Node(
@@ -60,14 +66,16 @@ def generate_launch_description():
     # )
 
     return LaunchDescription([
-        DeclareLaunchArgument(
-            "filename",
-            default_value = "my_data",
-            description = "File name to save .csv file with experimental data"
-        ),
-        actions.LogInfo(msg = ["filename: ", LaunchConfiguration('filename')]),
+        # DeclareLaunchArgument(
+        #     "filename",
+        #     default_value = "my_data",
+        #     description = "File name to save .csv file with experimental data"
+        # ),
+        # actions.LogInfo(msg = ["filename: ", LaunchConfiguration('filename')]),
         robot,
-        interface,
-        igtl_bridge,
-        # control
+        initialization,
+        mritracking_interface,
+        planning,
+        manual_control,
+        # save_file
     ])

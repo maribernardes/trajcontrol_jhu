@@ -45,7 +45,6 @@ class ControllerManualSmart(Node):
         if (self.stage_initial.size == 0):
             initial_point = msg.point
             self.stage_initial = np.array([initial_point.x, initial_point.y, initial_point.z])
-            self.get_logger().info('Initial position in (%f, %f, %f)' %(self.stage_initial[0], self.stage_initial[1], self.stage_initial[2])) 
             self.robot_idle = True                  # Initialize robot status
 
     # Get robot pose
