@@ -39,6 +39,9 @@ class ControllerManualSmart(Node):
 
         self.motion_step = self.get_parameter('motion_step').get_parameter_value().double_value
 
+        # Print numpy floats with only 3 decimal places
+        np.set_printoptions(formatter={'float': lambda x: "{0:0.4f}".format(x)})
+
     # Get robot initial point
     def initial_point_callback(self, msg):
         # Stores robot initial position (only once)
@@ -83,7 +86,7 @@ class ControllerManualSmart(Node):
         goal_msg.y = float(y)
         goal_msg.z = float(z)
         goal_msg.eps = 0.0001
-        self.get_logger().info('Send goal request... Control u: x=%f, y=%f, z=%f' % (x, y, z))
+        self.get_logger().info('Send goal request... Control u: x=%.4f, y=%.4f, z=%.4f' % (x, y, z))
 
         # Wait for action server
         self.action_client.wait_for_server()        
@@ -104,7 +107,7 @@ class ControllerManualSmart(Node):
         result = future.result().result
         status = future.result().status
         if status == GoalStatus.STATUS_SUCCEEDED:
-            self.get_logger().info('Goal reached: %s' %(result))
+            self.get_logger().info('Goal reached: %.4f, %.4f, %.4f' %(result.x, result.y, result.z))
         elif result.error_code == 1:
             self.get_logger().info('Goal failed: TIMETOUT')
         self.robot_idle = True       # Set robot status to IDLE
