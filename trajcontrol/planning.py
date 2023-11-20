@@ -30,8 +30,8 @@ from scipy.ndimage import median_filter
 # '/stage/initial_point'    (geometry_msgs.msg.PointStamped)- robot frame
 #
 # Publishes:    
-# '/subject/state/target'     (geometry_msgs.msg.PointStamped) - robot frame
-# '/subject/state/skin_entry' (geometry_msgs.msg.PointStamped) - robot frame
+# '/subject/state/target'     (geometry_msgs.msg.Point) - robot frame
+# '/subject/state/skin_entry' (geometry_msgs.msg.Point) - robot frame
 #
 #########################################################################
 
@@ -60,8 +60,8 @@ class Planning(Node):
         # Skin entry and target (robot frame)
         timer_period_planning = 1.0  # seconds
         self.timer_planning = self.create_timer(timer_period_planning, self.timer_planning_callback)        
-        self.publisher_skin_entry = self.create_publisher(PointStamped, '/subject/state/skin_entry', 10)
-        self.publisher_target = self.create_publisher(PointStamped, '/subject/state/target', 10)
+        self.publisher_skin_entry = self.create_publisher(Point, '/subject/state/skin_entry', 10)
+        self.publisher_target = self.create_publisher(Point, '/subject/state/target', 10)
         
 #### Stored variables ###################################################
         # Frame transformations
@@ -118,30 +118,34 @@ class Planning(Node):
         if self.use_slicer is True:
             # Publishes only after 3DSlicer pushed values
             if (self.skin_entry.size != 0):
-                msg = PointStamped()
-                msg.header.stamp = self.get_clock().now().to_msg()
-                msg.header.frame_id = 'stage'
-                msg.point = Point(x=self.skin_entry[0], y=self.skin_entry[1], z=self.skin_entry[2])
+                msg = Point()
+                # msg.header.stamp = self.get_clock().now().to_msg()
+                # msg.header.frame_id = 'stage'
+                # msg.point = Point(x=self.skin_entry[0], y=self.skin_entry[1], z=self.skin_entry[2])
+                msg = Point(x=self.skin_entry[0], y=self.skin_entry[1], z=self.skin_entry[2])
                 self.publisher_skin_entry.publish(msg)
                 self.get_logger().debug('Skin entry (stage) = %s' %(self.skin_entry))
             if (self.target.size != 0):
-                msg = PointStamped()
-                msg.header.stamp = self.get_clock().now().to_msg()
-                msg.header.frame_id = 'stage'
-                msg.point = Point(x=self.target[0], y=self.target[1], z=self.target[2])
+                msg = Point()
+                # msg.header.stamp = self.get_clock().now().to_msg()
+                # msg.header.frame_id = 'stage'
+                # msg.point = Point(x=self.target[0], y=self.target[1], z=self.target[2])
+                msg = Point(x=self.target[0], y=self.target[1], z=self.target[2])
                 self.publisher_target.publish(msg)
                 self.get_logger().debug('Target (stage) = %s' %(self.target))
         else:
             # Publishes only after experiment started (stored inital point is available)
             if (self.initial_point.size != 0):
-                msg = PointStamped()
-                msg.header.stamp = self.get_clock().now().to_msg()
-                msg.header.frame_id = 'stage'
-                msg.point = Point(x=self.initial_point[0], y=self.initial_point[1]+self.air_gap, z=self.initial_point[2])
+                msg = Point()
+                # msg.header.stamp = self.get_clock().now().to_msg()
+                # msg.header.frame_id = 'stage'
+                # msg.point = Point(x=self.initial_point[0], y=self.initial_point[1]+self.air_gap, z=self.initial_point[2])
+                msg = Point(x=self.initial_point[0], y=self.initial_point[1]+self.air_gap, z=self.initial_point[2])
                 self.publisher_skin_entry.publish(msg)
                 self.get_logger().debug('Skin entry (stage) = %s' %(self.skin_entry))
-                msg.header.stamp = self.get_clock().now().to_msg()
-                msg.point = Point(x=self.initial_point[0], y=self.initial_point[1]+self.air_gap+self.insertion_length, z=self.initial_point[2])
+                # msg.header.stamp = self.get_clock().now().to_msg()
+                # msg.point = Point(x=self.initial_point[0], y=self.initial_point[1]+self.air_gap+self.insertion_length, z=self.initial_point[2])
+                msg = Point(x=self.initial_point[0], y=self.initial_point[1]+self.air_gap+self.insertion_length, z=self.initial_point[2])
             
 ########################################################################
 
@@ -200,6 +204,7 @@ def main(args=None):
     rclpy.init(args=args)
 
     planning = Planning()
+    planning.get_logger().info('Planning ON')
     rclpy.spin(planning)
 
     # Destroy the node explicitly

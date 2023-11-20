@@ -11,6 +11,7 @@ from smart_control_interfaces.action import MoveStage
 
 class ControllerManualSmart(Node):
 
+#### Subscribed topics ###################################################
     def __init__(self):
         super().__init__('controller_manual_smart')
 
@@ -22,15 +23,19 @@ class ControllerManualSmart(Node):
         self.subscription_keyboard # prevent unused variable warning
 
         #Topics from interface node
-        self.subscription_initial_point = self.create_subscription(PointStamped, '/stage/initial_point', self.initial_point_callback, 10)
+        self.subscription_initial_point = self.create_subscription(PoseStamped, '/stage/initial_point', self.initial_point_callback, 10)
         self.subscription_initial_point # prevent unused variable warning
 
         #Topics from robot node
         self.subscription_robot = self.create_subscription(PoseStamped, '/stage/state/guide_pose', self.robot_callback, 10)
         self.subscription_robot # prevent unused variable warning
 
+#### Action client ###################################################
+
         #Action client 
         self.action_client = ActionClient(self, MoveStage, '/move_stage')
+
+#### Stored variables ###################################################
 
         # Stored values
         self.stage_initial = np.empty(shape=[3,0])  # Stage home position
@@ -42,12 +47,14 @@ class ControllerManualSmart(Node):
         # Print numpy floats with only 3 decimal places
         np.set_printoptions(formatter={'float': lambda x: "{0:0.4f}".format(x)})
 
+#### Listening callbacks ###################################################
+
     # Get robot initial point
     def initial_point_callback(self, msg):
         # Stores robot initial position (only once)
         if (self.stage_initial.size == 0):
-            initial_point = msg.point
-            self.stage_initial = np.array([initial_point.x, initial_point.y, initial_point.z])
+            initial_point = msg.pose
+            self.stage_initial = np.array([initial_point.position.x, initial_point.position.y, initial_point.position.z])
             self.robot_idle = True                  # Initialize robot status
 
     # Get robot pose
@@ -115,6 +122,7 @@ class ControllerManualSmart(Node):
 def main(args=None):
     rclpy.init(args=args)
     controller_manual_smart = ControllerManualSmart()
+    controller_manual_smart.get_logger().info('Controller MANUAL')
     rclpy.spin(controller_manual_smart)
 
     # Destroy the node explicitly

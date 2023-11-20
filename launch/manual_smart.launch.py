@@ -21,15 +21,15 @@ from launch.substitutions import ThisLaunchFileDir
 
 def generate_launch_description():
 
+    # robot = Node(
+    #     package="smart_template",
+    #     executable="template",
+    # )  
+
     robot = Node(
         package="smart_template",
-        executable="template",
+        executable="virtual_template",
     )  
-
-    # virtual_robot = Node(
-    #     package="smart_template",
-    #     executable="virtual_template",
-    # )  
 
     manual_control = Node(
         package="trajcontrol",

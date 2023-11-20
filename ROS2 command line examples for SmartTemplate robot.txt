@@ -39,7 +39,10 @@ ________________________________________________________________________________
 
 ***ROS2 computer***
 
-ros2 launch ros2 launch trajcontrol smartneedle_demo_smart.launch.py
+ros2 launch trajcontrol jhu_needle.launch.py 
+ros2 run hyperion_interrogator calibrate_sensors --ros-args -r __ns:=/needle
+
+ros2 launch trajcontrol smartneedle_demo.launch.py
 ros2 run smart_template keypress
 
 OBS: 
