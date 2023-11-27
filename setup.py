@@ -30,6 +30,8 @@ setup(
             'controller_manual_smart = trajcontrol.controller_manual_smart:main',
             'controller_mpc = trajcontrol.controller_mpc:main',
             'save_file = trajcontrol.save_file:main',
+            'smart_needle_interface = trajcontrol.smart_needle_interface:main',
+            'mri_tracking_interface = trajcontrol.mri_tracking_interface:main'
             'benchmark2 = trajcontrol.benchmark2:main',
             'virtual_smart_needle = trajcontrol.virtual_smart_needle:main',
         ],
