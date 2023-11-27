@@ -6,10 +6,11 @@ import datetime
 
 from rclpy.node import Node
 from numpy import loadtxt
-from std_msgs.msg import Int8, Int16
 from geometry_msgs.msg import PoseArray, PoseStamped, PointStamped, Quaternion, Point
 from ros2_igtl_bridge.msg import PointArray, String
 
+from numpy import loadtxt
+from ament_index_python.packages import get_package_share_directory
 #########################################################################
 #
 # SmartNeedle Interface Node
@@ -54,7 +55,7 @@ class SmartNeedleInterface(Node):
         self.subscription_robot # prevent unused variable warning
 
         # Topics from keyboard interface node (robot initialization)
-        self.subscription_initial_point = self.create_subscription(PoseStamped, '/stage/initial_point', self.initial_point_callback, 10)
+        self.subscription_initial_point = self.create_subscription(PointStamped, '/stage/initial_point', self.initial_point_callback, 10)
         self.subscription_initial_point # prevent unused variable warning
 
 #### Published topics ###################################################
@@ -101,30 +102,31 @@ class SmartNeedleInterface(Node):
         self.push_to_bridge = self.get_parameter('use_slicer').get_parameter_value().bool_value
 
 #### Interface initialization ###################################################
-        
-        # Initialize zFrameToRobot transform
-        # Fixed relation from geometry of robot and zFrame attachment
-        q_tf = np.quaternion(np.cos(np.deg2rad(45)), np.sin(np.deg2rad(45)), 0, 0)
-        zFrameCenter = np.array([0,0,0])
-        self.zFrameToRobot = np.concatenate((zFrameCenter, np.array([q_tf.w, q_tf.x, q_tf.y, q_tf.z])))
 
         # Print numpy floats with only 3 decimal places
         np.set_printoptions(formatter={'float': lambda x: "{0:0.4f}".format(x)})
+
+        # Load SmartTemplate Transform
+        try:
+            smart_template_share_directory = get_package_share_directory('smart_template')
+            self.zFrameToRobot  = np.array(loadtxt(os.path.join(smart_template_share_directory,'files','zframe.csv'), delimiter=','))
+        except IOError:
+            self.get_logger().info('Could not find zframe.csv file')
 
 #### Listening callbacks ###################################################
 
     # Get initial robot pose
     def initial_point_callback(self, msg_robot):
         if (self.initial_point.size == 0): # Do it only once
-            robot = msg_robot.pose
+            robot = msg_robot.point
             # Set initial point
-            self.initial_point = np.array([robot.position.x, robot.position.y, robot.position.z])
+            self.initial_point = np.array([robot.x, robot.y, robot.z])
             q_tf1= np.quaternion(np.cos(np.deg2rad(45)), np.sin(np.deg2rad(45)), 0, 0)
             q_tf2= np.quaternion(np.cos(np.deg2rad(45)), 0, 0, np.sin(np.deg2rad(45)))
             q_tf = q_tf1*q_tf2   
             # Set needleToRobot transform         
             self.needleToRobot = np.concatenate((self.initial_point[0:3], np.array([q_tf.w, q_tf.x, q_tf.y, q_tf.z]))) # Registration now comes from entry point
-
+            self.get_logger().info('Set needleToRobot transform')
     # Get current robot pose
     def robot_callback(self, msg_robot):
         robot = msg_robot.pose
@@ -144,6 +146,7 @@ class SmartNeedleInterface(Node):
         tip = np.array([shape[N-1].position.x, shape[N-1].position.y, shape[N-1].position.z])  #get tip
         q = np.array([shape[N-1].orientation.w, shape[N-1].orientation.x, shape[N-1].orientation.y, shape[N-1].orientation.z])
         self.sensorZ = np.array([tip[0], tip[1], tip[2], q[0], q[1], q[2], q[3]])
+        self.get_logger().info('Shape published')
         # Transform from needle to robot frame
         if (self.needleToRobot.size != 0): 
             self.Z = pose_transform(self.sensorZ, self.needleToRobot)

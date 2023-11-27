@@ -34,9 +34,9 @@ from ament_index_python.packages import get_package_share_directory
 # '/stage/state/guide_pose' (geometry_msgs.msg.PoseStamped)  - robot frame
 #
 # Publishes:    
-# '/subject/state/target'     (geometry_msgs.msg.Point) - robot frame
-# '/subject/state/skin_entry' (geometry_msgs.msg.Point) - robot frame
-# '/stage/initial_point'    (geometry_msgs.msg.PoseStamped) - robot frame
+# '/subject/state/target'     (geometry_msgs.msg.PointStamped) - robot frame
+# '/subject/state/skin_entry' (geometry_msgs.msg.PointStamped) - robot frame
+# '/stage/initial_point'      (geometry_msgs.msg.PointStamped) - robot frame
 #
 # Action client:
 # '/movestage'              (smart_control_interfaces.action.MoveStage) - robot frame
@@ -72,13 +72,13 @@ class Planning(Node):
         # Skin entry and target (robot frame)
         timer_period_planning = 1.0  # seconds
         self.timer_planning = self.create_timer(timer_period_planning, self.timer_planning_callback)        
-        self.publisher_skin_entry = self.create_publisher(Point, '/subject/state/skin_entry', 10)
-        self.publisher_target = self.create_publisher(Point, '/subject/state/target', 10)
+        self.publisher_skin_entry = self.create_publisher(PointStamped, '/subject/state/skin_entry', 10)
+        self.publisher_target = self.create_publisher(PointStamped, '/subject/state/target', 10)
 
         # Experiment initial robot position (robot frame)
         timer_period_initialize = 3.0  # seconds
         self.timer_initialize = self.create_timer(timer_period_initialize, self.timer_initialize_callback)        
-        self.publisher_initial_point = self.create_publisher(PoseStamped, '/stage/initial_point', 10)
+        self.publisher_initial_point = self.create_publisher(PointStamped, '/stage/initial_point', 10)
 
 #### Action client ###################################################
 
@@ -99,10 +99,6 @@ class Planning(Node):
         self.initial_point = np.empty(shape=[0,3])  # Stage position at begining of experiment
         self.stage = np.empty(shape=[0,3])          # Stage positions: horizontal / depth / vertical 
         self.listen_keyboard = False                # Flag for waiting keyboard input (set robot initial position)
-        
-        # If not waiting for Slicer planning, than wait for keyboard
-        if self.use_slicer is False:
-            self.listen_keyboard = True
 
 #### Interface initialization ###################################################
         # Print numpy floats with only 3 decimal places
@@ -117,11 +113,6 @@ class Planning(Node):
         except IOError:
             self.get_logger().info('Could not find zframe.csv file')
 
-        # # Initialize zFrameToRobot transform
-        # zFrameCenter = np.array([0,0,0])
-        # q_tf = np.quaternion(np.cos(np.deg2rad(45)), np.sin(np.deg2rad(45)), 0, 0)
-        # self.zFrameToRobot = np.concatenate((zFrameCenter, np.array([q_tf.w, q_tf.x, q_tf.y, q_tf.z])))
-
 #### Listening callbacks ###################################################
 
     # Get current robot pose
@@ -134,16 +125,16 @@ class Planning(Node):
         if (self.use_slicer is True): # Only for Slicer
             name = msg_point.name      
             npoints = len(msg_point.pointdata)
-            self.get_logger().info('%i points incoming: %s' %(npoints,name))
             if (name == 'TARGET') and (npoints == 2): # Name is adjusted in 3DSlicer module
+                q = np.quaternion(self.zFrameToRobot[3], self.zFrameToRobot[4], self.zFrameToRobot[5], self.zFrameToRobot[6]).conj() # Get identity orientation in zFrame coordinates
                 if (self.initial_point.size == 0): # Experiment not initialized
                     self.listen_keyboard == True 
                     # Change skin_entry only if experiment not initialized yet
-                    skin_entry_zFrame = np.array([msg_point.pointdata[0].x, msg_point.pointdata[0].y, msg_point.pointdata[0].z, 1,0,0,0])
+                    skin_entry_zFrame = np.array([msg_point.pointdata[0].x, msg_point.pointdata[0].y, msg_point.pointdata[0].z, q.w,q.x,q.y,q.z])
                     skin_entry_robot = pose_transform(skin_entry_zFrame, self.zFrameToRobot)
                     self.skin_entry = skin_entry_robot[0:3]
                 # Target can be changed in 3DSlicer after initialization
-                target_zFrame = np.array([msg_point.pointdata[1].x, msg_point.pointdata[1].y, msg_point.pointdata[1].z, 1,0,0,0])
+                target_zFrame = np.array([msg_point.pointdata[1].x, msg_point.pointdata[1].y, msg_point.pointdata[1].z, q.w,q.x,q.y,q.z])
                 target_robot = pose_transform(target_zFrame, self.zFrameToRobot)
                 self.target = target_robot[0:3]
                 self.get_logger().info('Skin entry (zFrame) = %s' %(skin_entry_zFrame))
@@ -166,42 +157,37 @@ class Planning(Node):
         if self.use_slicer is True:
             # Publishes only after 3DSlicer pushed values
             if (self.skin_entry.size != 0):
-                msg = Point()
-                # msg.header.stamp = self.get_clock().now().to_msg()
-                # msg.header.frame_id = 'stage'
-                # msg.point = Point(x=self.skin_entry[0], y=self.skin_entry[1], z=self.skin_entry[2])
-                msg = Point(x=self.skin_entry[0], y=self.skin_entry[1], z=self.skin_entry[2])
+                msg = PointStamped()
+                msg.header.stamp = self.get_clock().now().to_msg()
+                msg.header.frame_id = 'stage'
+                msg.point = Point(x=self.skin_entry[0], y=self.skin_entry[1], z=self.skin_entry[2])
                 self.publisher_skin_entry.publish(msg)
             if (self.target.size != 0):
-                msg = Point()
-                # msg.header.stamp = self.get_clock().now().to_msg()
-                # msg.header.frame_id = 'stage'
-                # msg.point = Point(x=self.target[0], y=self.target[1], z=self.target[2])
-                msg = Point(x=self.target[0], y=self.target[1], z=self.target[2])
+                msg = PointStamped()
+                msg.header.stamp = self.get_clock().now().to_msg()
+                msg.header.frame_id = 'stage'
+                msg.point = Point(x=self.target[0], y=self.target[1], z=self.target[2])
                 self.publisher_target.publish(msg)
         else:
             # Publishes only after experiment started (stored inital point is available)
             if (self.initial_point.size != 0):
-                msg = Point()
-                # msg.header.stamp = self.get_clock().now().to_msg()
-                # msg.header.frame_id = 'stage'
-                # msg.point = Point(x=self.initial_point[0], y=self.initial_point[1]+self.air_gap, z=self.initial_point[2])
-                msg = Point(x=self.initial_point[0], y=self.initial_point[1]+self.air_gap, z=self.initial_point[2])
+                msg = PointStamped()
+                msg.header.stamp = self.get_clock().now().to_msg()
+                msg.header.frame_id = 'stage'
+                msg.point = Point(x=self.initial_point[0], y=self.initial_point[1]+self.air_gap, z=self.initial_point[2])
                 self.publisher_skin_entry.publish(msg)
-                # msg.header.stamp = self.get_clock().now().to_msg()
-                # msg.point = Point(x=self.initial_point[0], y=self.initial_point[1]+self.air_gap+self.insertion_length, z=self.initial_point[2])
-                msg = Point(x=self.initial_point[0], y=self.initial_point[1]+self.air_gap+self.insertion_length, z=self.initial_point[2])
-
+                msg.header.stamp = self.get_clock().now().to_msg()
+                msg.point = Point(x=self.initial_point[0], y=self.initial_point[1]+self.air_gap+self.insertion_length, z=self.initial_point[2])
+                
     # Publishes initial point
     def timer_initialize_callback(self):
         # Publishes only after experiment started (stored initial point is available)
         if (self.initial_point.size != 0):
-            msg = PoseStamped()
+            msg = PointStamped()
             msg.header.stamp = self.get_clock().now().to_msg()
             msg.header.frame_id = 'stage'
             # Publish robot initial point (robot frame)
-            msg.pose.position = Point(x=self.initial_point[0], y=self.initial_point[1], z=self.initial_point[2])
-            msg.pose.orientation = Quaternion(w=1.0, x=0.0, y=0.0, z=0.0)
+            msg.point = Point(x=self.initial_point[0], y=self.initial_point[1], z=self.initial_point[2])
             self.publisher_initial_point.publish(msg)
 
 #### Action server functions ###################################################
@@ -243,23 +229,16 @@ class Planning(Node):
             self.get_logger().debug('Initial robot position: %s' %(self.initial_point)) 
             self.listen_keyboard == False
             # Publishes immediately
-            msg = PoseStamped()
+            msg = PointStamped()
             msg.header.stamp = self.get_clock().now().to_msg()
             msg.header.frame_id = 'stage'
-            msg.pose.position = Point(x=self.initial_point[0], y=self.initial_point[1], z=self.initial_point[2])
-            msg.pose.orientation = Quaternion(w=1.0, x=0.0, y=0.0, z=0.0)
+            msg.point = Point(x=self.initial_point[0], y=self.initial_point[1], z=self.initial_point[2])
             self.publisher_initial_point.publish(msg)
         elif result.error_code == 1:
             self.get_logger().info('Goal failed: TIMETOUT')
         self.robot_idle = True       # Set robot status to IDLE
             
-########################################################################
-
-# Function: pose_transform
-# DO: Transform pose to new reference frame
-# Inputs: 
-#   x_origin: pose in original reference frame (numpy array [x, y, z, qw, qx, qy, qz])
-#   x_tf: transformation from original to new frame (numpy array [x, y, z, qw, qx, qy, qz])
+############################################################Pointrray [x, y, z, qw, qx, qy, qz])
 # Output:
 #   x_new: pose in new reference frame (numpy array [x, y, z, qw, qx, qy, qz])
 def pose_transform(x_orig, x_tf):
@@ -313,17 +292,22 @@ def main(args=None):
     planning.get_logger().info('Planning: use_slicer = %s' %planning.use_slicer)
     if (planning.use_slicer is True):
         planning.get_logger().info('Waiting planning points from 3DSlicer')
-
-    # Wait for stage and sensor to start publishing
+    else:
+        planning.get_logger().info('**** Position robot at initial point and hit SPACE ****')
+        planning.get_logger().info('REMEMBER: Use another terminal to run keypress node')
+        planning.listen_keyboard = True
+    
+    # Wait for skin_entry to be defined
     while rclpy.ok():
         rclpy.spin_once(planning)
-        if(planning.skin_entry.size == 0): # Planning points have not published yet (wait for them)
+        if(planning.skin_entry.size == 0): # Keep loop while skin_entry not set
             pass
         else:
-            planning.get_logger().info('Planning SET')
-            planning.get_logger().info('**** To position robot and initialize experiment, hit SPACE ****')
-            planning.get_logger().info('REMEMBER: Use another terminal to run keypress node')
-            planning.listen_keyboard = True
+            if (planning.use_slicer is True):
+                planning.get_logger().info('Planned robot initial point = %s' %(planning.skin_entry))
+                planning.get_logger().info('**** To position robot and initialize experiment, hit SPACE ****')
+                planning.get_logger().info('REMEMBER: Use another terminal to run keypress node')
+                planning.listen_keyboard = True
             break
 
     # Initialize insertion
