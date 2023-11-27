@@ -13,6 +13,8 @@ from geometry_msgs.msg import PoseArray, PoseStamped, PointStamped, Quaternion, 
 from ros2_igtl_bridge.msg import PointArray
 from smart_control_interfaces.action import MoveStage
 
+from numpy import loadtxt
+from ament_index_python.packages import get_package_share_directory
 #########################################################################
 #
 # Planning Node
@@ -98,15 +100,27 @@ class Planning(Node):
         self.stage = np.empty(shape=[0,3])          # Stage positions: horizontal / depth / vertical 
         self.listen_keyboard = False                # Flag for waiting keyboard input (set robot initial position)
         
+        # If not waiting for Slicer planning, than wait for keyboard
+        if self.use_slicer is False:
+            self.listen_keyboard = True
+
 #### Interface initialization ###################################################
-
-        # Initialize zFrameToRobot transform
-        q_tf = np.quaternion(np.cos(np.deg2rad(45)), np.sin(np.deg2rad(45)), 0, 0)
-        zFrameCenter = np.array([0,0,0])
-        self.zFrameToRobot = np.concatenate((zFrameCenter, np.array([q_tf.w, q_tf.x, q_tf.y, q_tf.z])))
-
         # Print numpy floats with only 3 decimal places
         np.set_printoptions(formatter={'float': lambda x: "{0:0.4f}".format(x)})
+
+        # Load SmartTemplate Transform
+        self.get_logger().info('Loading SmartTemplate zFrame...')
+        try:
+            smart_template_share_directory = get_package_share_directory('smart_template')
+            self.zFrameToRobot  = np.array(loadtxt(os.path.join(smart_template_share_directory,'files','zframe.csv'), delimiter=','))
+            self.get_logger().info('Loaded zFrame: %s' %self.zFrameToRobot)
+        except IOError:
+            self.get_logger().info('Could not find zframe.csv file')
+
+        # # Initialize zFrameToRobot transform
+        # zFrameCenter = np.array([0,0,0])
+        # q_tf = np.quaternion(np.cos(np.deg2rad(45)), np.sin(np.deg2rad(45)), 0, 0)
+        # self.zFrameToRobot = np.concatenate((zFrameCenter, np.array([q_tf.w, q_tf.x, q_tf.y, q_tf.z])))
 
 #### Listening callbacks ###################################################
 
@@ -117,35 +131,32 @@ class Planning(Node):
         
     # Get current skin entry and target points 
     def bridge_point_callback(self, msg_point):
-        name = msg_point.name      
-        npoints = len(msg_point.pointdata)
-        if (name == 'TARGET') and (npoints == 2): # Name is adjusted in 3DSlicer module
-            skin_entry_zFrame = np.array([msg_point.pointdata[0].x, msg_point.pointdata[0].y, msg_point.pointdata[0].z, 1,0,0,0])
-            target_zFrame = np.array([msg_point.pointdata[1].x, msg_point.pointdata[1].y, msg_point.pointdata[1].z, 1,0,0,0])
-            skin_entry_robot = pose_transform(skin_entry_zFrame, self.zFrameToRobot)
-            target_robot = pose_transform(target_zFrame, self.zFrameToRobot)
-            self.skin_entry = skin_entry_robot[0:3]
-            self.target = target_robot[0:3]
-            if (self.initial_point.size == 0):  #If not initialized robot position yet
-                self.listen_keyboard == True
-
+        if (self.use_slicer is True): # Only for Slicer
+            name = msg_point.name      
+            npoints = len(msg_point.pointdata)
+            self.get_logger().info('%i points incoming: %s' %(npoints,name))
+            if (name == 'TARGET') and (npoints == 2): # Name is adjusted in 3DSlicer module
+                if (self.initial_point.size == 0): # Experiment not initialized
+                    self.listen_keyboard == True 
+                    # Change skin_entry only if experiment not initialized yet
+                    skin_entry_zFrame = np.array([msg_point.pointdata[0].x, msg_point.pointdata[0].y, msg_point.pointdata[0].z, 1,0,0,0])
+                    skin_entry_robot = pose_transform(skin_entry_zFrame, self.zFrameToRobot)
+                    self.skin_entry = skin_entry_robot[0:3]
+                # Target can be changed in 3DSlicer after initialization
+                target_zFrame = np.array([msg_point.pointdata[1].x, msg_point.pointdata[1].y, msg_point.pointdata[1].z, 1,0,0,0])
+                target_robot = pose_transform(target_zFrame, self.zFrameToRobot)
+                self.target = target_robot[0:3]
+                self.get_logger().info('Skin entry (zFrame) = %s' %(skin_entry_zFrame))
+                self.get_logger().info('Skin entry (stage) = %s' %(skin_entry_robot))
+                self.get_logger().info('Target (zFrame) = %s' %(target_zFrame))
+                self.get_logger().info('Target (stage) = %s' %(target_robot))
     # A keyboard hotkey was pressed 
     def keyboard_callback(self, msg):
-        if (self.listen_keyboard == True) : # If listerning to keyboard
-            if (self.initial_point.size == 0) and (msg.data == 32):  # SPACE: initialize stage initial point only ONCE
-                # Initialize robot
-                self.initial_point = self.stage
-                self.get_logger().debug('Initial robot position: %s' %(self.initial_point)) 
-                self.listen_keyboard == False
-                # Publishes immediately
-                msg = PoseStamped()
-                msg.header.stamp = self.get_clock().now().to_msg()
-                msg.header.frame_id = 'stage'
-                msg.pose.position = Point(x=self.initial_point[0], y=self.initial_point[1], z=self.initial_point[2])
-                msg.pose.orientation = Quaternion(w=self.initial_point[3], x=self.initial_point[4], y=self.initial_point[5], z=self.initial_point[6])
-                self.publisher_initial_point.publish(msg)
-            else:
-                self.get_logger().debug('Initial position already defined: %s' %(self.initial_point)) 
+        if (self.listen_keyboard is True) and (self.initial_point.size == 0) and (msg.data == 32):  # SPACE: initialize stage initial point only ONCE
+            if (self.use_slicer is False): # Define entry point with current position
+                self.skin_entry = np.array([self.stage[0], self.stage[1], self.stage[2]]) 
+                self.target = np.array([self.skin_entry[0], self.skin_entry[1]+self.insertion_length, self.skin_entry[2]]) 
+            self.send_cmd(self.skin_entry[0], self.skin_entry[1], self.skin_entry[2])
 
 #### Publishing callbacks ###################################################
 
@@ -161,7 +172,6 @@ class Planning(Node):
                 # msg.point = Point(x=self.skin_entry[0], y=self.skin_entry[1], z=self.skin_entry[2])
                 msg = Point(x=self.skin_entry[0], y=self.skin_entry[1], z=self.skin_entry[2])
                 self.publisher_skin_entry.publish(msg)
-                self.get_logger().debug('Skin entry (stage) = %s' %(self.skin_entry))
             if (self.target.size != 0):
                 msg = Point()
                 # msg.header.stamp = self.get_clock().now().to_msg()
@@ -169,7 +179,6 @@ class Planning(Node):
                 # msg.point = Point(x=self.target[0], y=self.target[1], z=self.target[2])
                 msg = Point(x=self.target[0], y=self.target[1], z=self.target[2])
                 self.publisher_target.publish(msg)
-                self.get_logger().debug('Target (stage) = %s' %(self.target))
         else:
             # Publishes only after experiment started (stored inital point is available)
             if (self.initial_point.size != 0):
@@ -179,7 +188,6 @@ class Planning(Node):
                 # msg.point = Point(x=self.initial_point[0], y=self.initial_point[1]+self.air_gap, z=self.initial_point[2])
                 msg = Point(x=self.initial_point[0], y=self.initial_point[1]+self.air_gap, z=self.initial_point[2])
                 self.publisher_skin_entry.publish(msg)
-                self.get_logger().debug('Skin entry (stage) = %s' %(self.skin_entry))
                 # msg.header.stamp = self.get_clock().now().to_msg()
                 # msg.point = Point(x=self.initial_point[0], y=self.initial_point[1]+self.air_gap+self.insertion_length, z=self.initial_point[2])
                 msg = Point(x=self.initial_point[0], y=self.initial_point[1]+self.air_gap+self.insertion_length, z=self.initial_point[2])
@@ -193,7 +201,7 @@ class Planning(Node):
             msg.header.frame_id = 'stage'
             # Publish robot initial point (robot frame)
             msg.pose.position = Point(x=self.initial_point[0], y=self.initial_point[1], z=self.initial_point[2])
-            msg.pose.orientation = Quaternion(w=self.initial_point[3], x=self.initial_point[4], y=self.initial_point[5], z=self.initial_point[6])
+            msg.pose.orientation = Quaternion(w=1.0, x=0.0, y=0.0, z=0.0)
             self.publisher_initial_point.publish(msg)
 
 #### Action server functions ###################################################
@@ -229,6 +237,18 @@ class Planning(Node):
         status = future.result().status
         if status == GoalStatus.STATUS_SUCCEEDED:
             self.get_logger().info('Goal reached: %.4f, %.4f, %.4f' %(result.x, result.y, result.z))
+            # Set robot initial point
+            self.stage = np.array([result.x, result.y, result.z])
+            self.initial_point = np.copy(self.stage)
+            self.get_logger().debug('Initial robot position: %s' %(self.initial_point)) 
+            self.listen_keyboard == False
+            # Publishes immediately
+            msg = PoseStamped()
+            msg.header.stamp = self.get_clock().now().to_msg()
+            msg.header.frame_id = 'stage'
+            msg.pose.position = Point(x=self.initial_point[0], y=self.initial_point[1], z=self.initial_point[2])
+            msg.pose.orientation = Quaternion(w=1.0, x=0.0, y=0.0, z=0.0)
+            self.publisher_initial_point.publish(msg)
         elif result.error_code == 1:
             self.get_logger().info('Goal failed: TIMETOUT')
         self.robot_idle = True       # Set robot status to IDLE
@@ -290,7 +310,9 @@ def main(args=None):
     rclpy.init(args=args)
 
     planning = Planning()    
-    planning.get_logger().info('Waiting for planning points...')
+    planning.get_logger().info('Planning: use_slicer = %s' %planning.use_slicer)
+    if (planning.use_slicer is True):
+        planning.get_logger().info('Waiting planning points from 3DSlicer')
 
     # Wait for stage and sensor to start publishing
     while rclpy.ok():
@@ -298,7 +320,7 @@ def main(args=None):
         if(planning.skin_entry.size == 0): # Planning points have not published yet (wait for them)
             pass
         else:
-            planning.get_logger().info('Planning received!')
+            planning.get_logger().info('Planning SET')
             planning.get_logger().info('**** To position robot and initialize experiment, hit SPACE ****')
             planning.get_logger().info('REMEMBER: Use another terminal to run keypress node')
             planning.listen_keyboard = True

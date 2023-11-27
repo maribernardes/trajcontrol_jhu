@@ -122,7 +122,16 @@ class ControllerManualSmart(Node):
 def main(args=None):
     rclpy.init(args=args)
     controller_manual_smart = ControllerManualSmart()
-    controller_manual_smart.get_logger().info('Controller MANUAL')
+
+    # Wait for experiment initialization
+    while rclpy.ok():
+        rclpy.spin_once(controller_manual_smart)
+        if controller_manual_smart.stage_initial.size == 0: # Not initialized yet
+            pass
+        else:
+            controller_manual_smart.get_logger().info('***** Ready to manually control *****')
+            controller_manual_smart.get_logger().info('Use arrows from numerical keyboad to move template and enter/space to insert/retract the needle')
+            break
     rclpy.spin(controller_manual_smart)
 
     # Destroy the node explicitly
