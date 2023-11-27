@@ -20,7 +20,8 @@ ________________________________________________________________________________
 2) Launch OpenIGTLink demo (manual control)
 
 ***3DSlicer***
-
+Open Slicer (using version 5.3)
+Open SmartNeedle module (IGT)
 
 
 ***ROS2 computer***
@@ -34,23 +35,37 @@ Use ENTER for needle insertion and SPACE for needle retraction.
 _______________________________________________________________________________________
 3) Launch Smart Needle demo (manual control)
 
-***3DSlicer***
-(This is optional)
-
-
 ***ROS2 computer***
 
+*Launch igtl_bridge server to 3DSlicer
+ros2 launch ros2_igtl_bridge bridge.launch.py
+<CONFIGURE 3DSLICER NOW - see bellow>
+
+*Launch SmartNeedle packages
 ros2 launch trajcontrol jhu_needle.launch.py 
 ros2 run hyperion_interrogator calibrate_sensors --ros-args -r __ns:=/needle
 
-ros2 launch trajcontrol smartneedle_demo.launch.py
+*Launch SmartTemplate packages
+ros2 launch trajcontrol smartneedle_demo.launch.py use_slicer:=True
 ros2 run smart_template keypress
 
 OBS: 
-use_slicer argument is optional (default = False)
-insertion_length argument is optional when use_slicer is False (default = 10.0)
-Use numkeyboard arrows to move robot in horizontal and vertical directions. 
-Use ENTER for needle insertion and SPACE for needle retraction.
+- use_slicer argument is optional (default=False)
+- insertion_length argument is optional when use_slicer is False (default=10.0). 
+    When use_slicer=True, insertion_length is set by target
+- Use numkeyboard arrows to move robot in horizontal and vertical directions. 
+- Use ENTER for needle insertion and SPACE for needle retraction.
+
+***3DSlicer***
+Open Slicer (using version 5.3)
+Step 1: ZFrameRegistrationROI module (IGT) 
+    *Get zFrame registration
+Step 2: Open SmartNeedle module (IGT)
+    *Set zFrameTransform
+    *Set IP and Port and start client
+    *Select ENTRY and TARGET points
+    <WAIT>
+
 _______________________________________________________________________________________
 
 
@@ -64,4 +79,6 @@ ros2 topic list
 ros2 topic echo topic_name
 ros2 topic hz topic_name
 
-
+C) Kill zoombie nodes
+ps -aux | grep NAME : ex: igtl_bridge
+kill -9 NUMBER

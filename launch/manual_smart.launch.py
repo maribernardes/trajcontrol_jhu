@@ -40,12 +40,6 @@ def generate_launch_description():
         )
     )
 
-    # Use keyboard interface
-    initialization = Node(
-        package = "smart_template",
-        executable = "initialization",
-    )
-
     # Use manual controller
     manual_control = Node(
         package = "trajcontrol",

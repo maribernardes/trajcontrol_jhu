@@ -48,17 +48,11 @@ def generate_launch_description():
 
     # Use mri tracking interface
     smart_needle_interface = Node(
-        package = "smart_template",
+        package = "trajcontrol",
         executable = "smart_needle_interface",
         parameters = [
             {"use_slicer": LaunchConfiguration('use_slicer')}
         ]
-    )
-    
-    # Use keyboard interface
-    initialization = Node(
-        package = "smart_template",
-        executable = "initialization",
     )
 
     # Use planning interface
@@ -95,7 +89,6 @@ def generate_launch_description():
     
     ld.add_action(hardware_launch)
     ld.add_action(virtual_launch)
-    ld.add_action(initialization)
     ld.add_action(smart_needle_interface)
     ld.add_action(planning)
     ld.add_action(manual_control)
