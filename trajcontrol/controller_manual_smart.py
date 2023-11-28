@@ -9,6 +9,23 @@ from action_msgs.msg import GoalStatus
 from geometry_msgs.msg import PoseStamped, PointStamped
 from smart_control_interfaces.action import MoveStage
 
+#########################################################################
+#
+# Controller Manual Smart
+#
+# Description:
+# This node manually controls the SmartTemplate robot
+#
+# Subscribes:   
+# '/keyboard/key'               (std_msgs.msg.Int8)
+# '/stage/state/guide_pose'     (geometry_msgs.msg.PoseStamped)  - robot frame
+# '/stage/initial_point'        (geometry_msgs.msg.PointStamped) - robot frame
+#
+# Action client:
+# '/movestage'              (smart_control_interfaces.action.MoveStage) - robot frame
+# 
+#########################################################################
+
 class ControllerManualSmart(Node):
 
 #### Subscribed topics ###################################################
@@ -23,7 +40,7 @@ class ControllerManualSmart(Node):
         self.subscription_keyboard # prevent unused variable warning
 
         #Topics from interface node
-        self.subscription_initial_point = self.create_subscription(PoseStamped, '/stage/initial_point', self.initial_point_callback, 10)
+        self.subscription_initial_point = self.create_subscription(PointStamped, '/stage/initial_point', self.initial_point_callback, 10)
         self.subscription_initial_point # prevent unused variable warning
 
         #Topics from robot node
@@ -53,8 +70,8 @@ class ControllerManualSmart(Node):
     def initial_point_callback(self, msg):
         # Stores robot initial position (only once)
         if (self.stage_initial.size == 0):
-            initial_point = msg.pose
-            self.stage_initial = np.array([initial_point.position.x, initial_point.position.y, initial_point.position.z])
+            initial_point = msg.point
+            self.stage_initial = np.array([initial_point.x, initial_point.y, initial_point.z])
             self.robot_idle = True                  # Initialize robot status
 
     # Get robot pose

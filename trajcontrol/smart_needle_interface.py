@@ -29,6 +29,7 @@ from ament_index_python.packages import get_package_share_directory
 #
 # Publishes:    
 # '/stage/state/needle_pose'    (geometry_msgs.msg.PoseStamped)   - needle frame
+# '/needle/state/skin_entry'    (geometry_msgs.msg.Point)         - needle frame
 # '/sensor/tip'                 (geometry_msgs.msg.PoseStamped)   - robot frame
 # '/sensor/base'                (geometry_msgs.msg.PoseStamped)   - robot frame
 # 'IGTL_STRING_OUT'             (ros2_igtl_bridge.msg.String)     - zFrame
@@ -54,9 +55,12 @@ class SmartNeedleInterface(Node):
         self.subscription_robot = self.create_subscription(PoseStamped, '/stage/state/guide_pose', self.robot_callback, 10)
         self.subscription_robot # prevent unused variable warning
 
-        # Topics from keyboard interface node (robot initialization)
+        # Topics from planning node
         self.subscription_initial_point = self.create_subscription(PointStamped, '/stage/initial_point', self.initial_point_callback, 10)
         self.subscription_initial_point # prevent unused variable warning
+
+        self.subscription_skin_entry = self.create_subscription(PointStamped, '/subject/state/skin_entry', self.skin_entry_callback, 10)
+        self.subscription_skin_entry # prevent unused variable warning
 
 #### Published topics ###################################################
 
@@ -70,10 +74,13 @@ class SmartNeedleInterface(Node):
         self.timer_base = self.create_timer(timer_period_base, self.timer_base_callback)
         self.publisher_base = self.create_publisher(PoseStamped,'/sensor/base', 10) #(stage frame)      
 
-        # Base (needle frame)
+        # Skin_entry and Base (needle frame)
         timer_period_needle_pose = 0.3 # seconds
         self.timer_needle_pose = self.create_timer(timer_period_needle_pose, self.timer_needle_pose_callback)        
-        self.publisher_needle_pose = self.create_publisher(PoseStamped,'/stage/state/needle_pose', 10)   #needle frame
+        self.publisher_needle_pose = self.create_publisher(PoseStamped,'/stage/state/needle_pose', 10)  #(needle frame)
+        timer_period_needle_pose = 1.0 # seconds
+        self.timer_skin_entry_needle = self.create_timer(timer_period_needle_pose, self.timer_skin_entry_needle_callback)        
+        self.publisher_skin_entry_needle = self.create_publisher(Point, '/needle/state/skin_entry', 10) #(needle frame)
 
         # Needle shape (zFrame)
         timer_period_shape = 1.0 # seconds
@@ -84,14 +91,16 @@ class SmartNeedleInterface(Node):
 
 #### Stored variables ###################################################
 
-        self.needleToRobot = np.empty(shape=[0,7])  # Needle to robot frame transform
-        self.zFrameToRobot = np.empty(shape=[0,7])  # ZFrame to robot frame transform (from 3DSlicer)
-        self.initial_point = np.empty(shape=[0,3])  # Robot position at begining of experiment
-        self.stage = np.empty(shape=[0,3])          # Robot current position (robot frame)
-        self.X = np.empty(shape=[0,7])              # Base pose (robot frame)
-        self.needle_pose = np.empty(shape=[0,7])    # Base pose (needle frame)
-        self.Z = np.empty(shape=[0,7])              # Tip pose (robot frame)
-        self.sensorZ = np.empty(shape=[0,7])        # Tip pose (needle frame)
+        self.zFrameToRobot = np.empty(shape=[0,7])      # zFrame to robot frame transform (from robot package)
+        self.needleToRobot = np.empty(shape=[0,7])      # Needle to robot frame transform (initialized from initial_point)
+
+        self.initial_point = np.empty(shape=[0,3])      # Robot position at begining of experiment (robot frame)
+        self.skin_entry_needle = np.empty(shape=[0,3])  # Skin entry at begining of experiment (needle frame)
+        self.stage = np.empty(shape=[0,3])              # Robot current position (robot frame)
+        self.X = np.empty(shape=[0,7])                  # Base pose (robot frame)
+        self.needle_pose = np.empty(shape=[0,7])        # Base pose (needle frame)
+        self.Z = np.empty(shape=[0,7])                  # Tip pose (robot frame)
+        self.sensorZ = np.empty(shape=[0,7])            # Tip pose (needle frame)
 
         # NeedleShape Bridge message
         self.shapecount = 0                         # Number of shape packace received
@@ -126,7 +135,15 @@ class SmartNeedleInterface(Node):
             q_tf = q_tf1*q_tf2   
             # Set needleToRobot transform         
             self.needleToRobot = np.concatenate((self.initial_point[0:3], np.array([q_tf.w, q_tf.x, q_tf.y, q_tf.z]))) # Registration now comes from entry point
-            self.get_logger().info('Set needleToRobot transform')
+
+    # Get skin_entry point
+    def skin_entry_callback(self, msg):
+        if (self.skin_entry_needle.size == 0) and (self.needleToRobot.size!=0): # Do it only once
+            skin_entry = msg.point
+            # Store skin_entry point
+            skin_entry = np.array([skin_entry.x, skin_entry.y, skin_entry.z, 1,0,0,0])
+            self.skin_entry_needle = pose_inv_transform(skin_entry, self.needleToRobot)[0:3]   # skin_entry in needle frame
+
     # Get current robot pose
     def robot_callback(self, msg_robot):
         robot = msg_robot.pose
@@ -214,7 +231,18 @@ class SmartNeedleInterface(Node):
             msg.pose.position = Point(x=self.Z[0], y=self.Z[1], z=self.Z[2])
             msg.pose.orientation = Quaternion(w=self.Z[3], x=self.Z[4], y=self.Z[5], z=self.Z[6])
             self.publisher_tip.publish(msg)
-            
+
+    # Publishes skin_entry in needle coordinate frame
+    # TODO: When possible, replace Point by PointStamped
+    def timer_skin_entry_needle_callback (self):
+        # Publish last needle pose in robot frame
+        if (self.skin_entry_needle.size != 0):
+            msg = Point()
+            # msg.header.stamp = self.get_clock().now().to_msg()
+            # msg.header.frame_id = 'needle'
+            msg = Point(x=self.skin_entry_needle[0], y=self.skin_entry_needle[1], z=self.skin_entry_needle[2])
+            self.publisher_skin_entry_needle.publish(msg)
+
     # Publishes needle displacement (x,y,z) in the needle coordinate frame
     def timer_needle_pose_callback (self):
         if (self.needle_pose.size != 0):

@@ -33,21 +33,22 @@ OBS:
 Use numkeyboard arrows to move robot in horizontal and vertical directions. 
 Use ENTER for needle insertion and SPACE for needle retraction.
 _______________________________________________________________________________________
-3) Launch Smart Needle demo (manual control)
+3) Launch Smart Needle experiment (manual control)
 
 ***ROS2 computer***
-
-*Launch igtl_bridge server to 3DSlicer
-ros2 launch ros2_igtl_bridge bridge.launch.py
-<CONFIGURE 3DSLICER NOW - see bellow>
 
 *Launch SmartNeedle packages
 ros2 launch trajcontrol jhu_needle.launch.py 
 ros2 run hyperion_interrogator calibrate_sensors --ros-args -r __ns:=/needle
 
+*Launch igtl_bridge server to 3DSlicer
+ros2 launch ros2_igtl_bridge bridge.launch.py
+<CONFIGURE 3DSLICER NOW - see bellow>
+
 *Launch SmartTemplate packages
-ros2 launch trajcontrol smartneedle_demo.launch.py use_slicer:=True
+ros2 launch smart_template robot.launch.py sim_level:=1 
 ros2 run smart_template keypress
+ros2 launch trajcontrol smartneedle_experiment.launch.py use_slicer:=True
 
 OBS: 
 - use_slicer argument is optional (default=False)
@@ -79,6 +80,10 @@ ros2 topic list
 ros2 topic echo topic_name
 ros2 topic hz topic_name
 
-C) Kill zoombie nodes
-ps -aux | grep NAME : ex: igtl_bridge
+C) Kill zoombie nodes (Example with igtl_bridge server)
+ps -aux | grep igtl_bridge
 kill -9 NUMBER
+
+ros2 service call /command smart_control_interfaces/srv/ControllerCommand "command: RETRACT"
+
+ros2 action send_goal /move_stage smart_control_interfaces/action/MoveStage "{x: 10, z: 0, eps: 0.0001}"
