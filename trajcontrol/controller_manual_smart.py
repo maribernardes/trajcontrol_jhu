@@ -8,6 +8,7 @@ from action_msgs.msg import GoalStatus
 
 from geometry_msgs.msg import PoseStamped, PointStamped
 from smart_control_interfaces.action import MoveStage
+from smart_control_interfaces.srv import ControllerCommand
 
 #########################################################################
 #
@@ -18,51 +19,60 @@ from smart_control_interfaces.action import MoveStage
 #
 # Subscribes:   
 # '/keyboard/key'               (std_msgs.msg.Int8)
-# '/stage/state/guide_pose'     (geometry_msgs.msg.PoseStamped)  - robot frame
+# '/stage/state/guide_pose'     (geometry_msgs.msg.PointStamped)  - robot frame
 # '/stage/initial_point'        (geometry_msgs.msg.PointStamped) - robot frame
 #
-# Action client:
-# '/movestage'              (smart_control_interfaces.action.MoveStage) - robot frame
+# Action/service client:
+# '/move_stage'             (smart_control_interfaces.action.MoveStage) - robot frame
+# '/command'                (smart_control_interfaces.action.MoveStage) - robot frame
 # 
 #########################################################################
 
 class ControllerManualSmart(Node):
 
-#### Subscribed topics ###################################################
     def __init__(self):
         super().__init__('controller_manual_smart')
 
         #Declare node parameters
-        self.declare_parameter('motion_step', 1.0) #Insertion length parameter
+        self.declare_parameter('lateral_step', 1.0)             # Lateral motion step parameter
+        self.declare_parameter('insertion_step', 10.0)          # Insertion step parameter
+        self.declare_parameter('wait_initialization', False)    # Wait for experiment initialization before taking commands
 
         #Topic from keypress node
         self.subscription_keyboard = self.create_subscription(Int8, '/keyboard/key', self.keyboard_callback, 10)
         self.subscription_keyboard # prevent unused variable warning
 
-        #Topics from interface node
-        self.subscription_initial_point = self.create_subscription(PointStamped, '/stage/initial_point', self.initial_point_callback, 10)
-        self.subscription_initial_point # prevent unused variable warning
-
         #Topics from robot node
-        self.subscription_robot = self.create_subscription(PoseStamped, '/stage/state/guide_pose', self.robot_callback, 10)
+        self.subscription_robot = self.create_subscription(PointStamped, '/stage/state/guide_pose', self.robot_callback, 10)
         self.subscription_robot # prevent unused variable warning
 
-#### Action client ###################################################
+#### Action/service client ###################################################
 
-        #Action client 
+        # Action client 
         self.action_client = ActionClient(self, MoveStage, '/move_stage')
+        while not self.action_client.wait_for_server(timeout_sec=1.0):
+            self.get_logger().info('SmartTemplate action server not available, waiting again...')
+        self.get_logger().info('SmartTemplate available')
+
+        # Service client
+        self.service_client = self.create_client(ControllerCommand, '/command')
+        while not self.service_client.wait_for_service(timeout_sec=1.0):
+            self.get_logger().info('SmartTemplate service server not available, waiting again...')
+        self.get_logger().info('SmartTemplate available')
 
 #### Stored variables ###################################################
+
+        # Print numpy floats with only 3 decimal places
+        np.set_printoptions(formatter={'float': lambda x: "{0:0.4f}".format(x)})
 
         # Stored values
         self.stage_initial = np.empty(shape=[3,0])  # Stage home position
         self.stage = np.empty(shape=[3,0])          # Current stage pose
-        self.robot_idle = False                     # Stage status
+        self.robot_idle = True                      # Stage status
 
-        self.motion_step = self.get_parameter('motion_step').get_parameter_value().double_value
-
-        # Print numpy floats with only 3 decimal places
-        np.set_printoptions(formatter={'float': lambda x: "{0:0.4f}".format(x)})
+        self.lateral_step = self.get_parameter('lateral_step').get_parameter_value().double_value
+        self.insertion_step = self.get_parameter('insertion_step').get_parameter_value().double_value
+        self.wait_initialization = self.get_parameter('wait_initialization').get_parameter_value().bool_value
 
 #### Listening callbacks ###################################################
 
@@ -76,8 +86,8 @@ class ControllerManualSmart(Node):
 
     # Get robot pose
     def robot_callback(self, msg_robot):
-        robot = msg_robot.pose
-        self.stage = np.array([robot.position.x, robot.position.y, robot.position.z])
+        robot = msg_robot.point
+        self.stage = np.array([robot.x, robot.y, robot.z])
 
     # A keyboard hotkey was pressed 
     def keyboard_callback(self, msg):
@@ -86,23 +96,58 @@ class ControllerManualSmart(Node):
             x = self.stage[0]
             y = self.stage[1]
             z = self.stage[2]
+            # Send move_stage action
             if (msg.data == 50): # move down
-                z = z - self.motion_step
+                z = z - self.lateral_step
+                self.move_stage(x, y, z) 
             elif (msg.data == 52): # move left
-                x = x - self.motion_step
+                x = x - self.lateral_step
+                self.move_stage(x, y, z) 
             elif (msg.data == 54): # move right
-                x = x + self.motion_step
+                x = x + self.lateral_step
+                self.move_stage(x, y, z) 
             elif (msg.data == 56): # move up
-                z = z + self.motion_step
+                z = z + self.lateral_step
+                self.move_stage(x, y, z) 
             elif (msg.data == 10): # insert one step
-                y = y + self.motion_step
+                y = y + self.insertion_step
+                self.move_stage(x, y, z) 
             elif (msg.data == 32): # retract one step
-                y = y - self.motion_step
-            # Send command to stage
-            self.send_cmd(x, y, z)  
+                y = y - self.insertion_step
+                self.move_stage(x, y, z) 
+            # Send command service
+            elif (msg.data == 65): # abort
+                self.command('ABORT')
+            elif (msg.data == 72): # home
+                self.command('HOME')
+            elif (msg.data == 82): # retract
+                self.command('RETRACT')
 
-    # Send MoveStage action to Stage
-    def send_cmd(self, x, y, z):
+#### Service call functions ###################################################
+
+    # Send Command service to robot 
+    def command(self, cmd_string):
+        srv_request = ControllerCommand.Request()
+        srv_request.command = cmd_string
+        srv_future = self.service_client.call_async(srv_request)
+        self.get_logger().info('After async call')
+        # See if the service has replied
+        if srv_future.done():
+            try:
+                response = srv_future.result()
+            except Exception as e:
+                self.get_logger().info('Service call failed %r' % (e,))
+            else:
+                self.get_logger().info('Service call returned: %s' %(response.response))
+
+        # rclpy.spin_until_future_complete(self, srv_future)
+        # self.get_logger().info('Service response: %s' %(srv_future.response()))
+        # return srv_future.response()
+
+#### Action call functions ###################################################
+
+    # Send MoveStage action to robot
+    def move_stage(self, x, y, z):
         # Send command to stage (convert mm to m)
         self.robot_idle = False     # Set robot status to NOT IDLE
         goal_msg = MoveStage.Goal()
@@ -111,7 +156,6 @@ class ControllerManualSmart(Node):
         goal_msg.z = float(z)
         goal_msg.eps = 0.0001
         self.get_logger().info('Send goal request... Control u: x=%.4f, y=%.4f, z=%.4f' % (x, y, z))
-
         # Wait for action server
         self.action_client.wait_for_server()        
         self.send_goal_future = self.action_client.send_goal_async(goal_msg)
@@ -141,14 +185,18 @@ def main(args=None):
     controller_manual_smart = ControllerManualSmart()
 
     # Wait for experiment initialization
-    while rclpy.ok():
-        rclpy.spin_once(controller_manual_smart)
-        if controller_manual_smart.stage_initial.size == 0: # Not initialized yet
-            pass
-        else:
-            controller_manual_smart.get_logger().info('***** Ready to manually control *****')
-            controller_manual_smart.get_logger().info('Use arrows from numerical keyboad to move template and enter/space to insert/retract the needle')
-            break
+    if controller_manual_smart.wait_initialization is True:
+        while rclpy.ok():
+            rclpy.spin_once(controller_manual_smart)
+            if controller_manual_smart.stage_initial.size == 0: # Not initialized yet
+                pass
+            else:
+                break
+
+    controller_manual_smart.get_logger().info('***** Ready to manually control *****')
+    controller_manual_smart.get_logger().info('Use arrows from numerical keyboad to move template')
+    controller_manual_smart.get_logger().info('Use enter/space to insert/retract the needle')
+    controller_manual_smart.get_logger().info('H = HOME, R = RETRACT, A = ABORT')
     rclpy.spin(controller_manual_smart)
 
     # Destroy the node explicitly

@@ -24,7 +24,7 @@ from ament_index_python.packages import get_package_share_directory
 #
 # Subscribes:   
 # '/needle/state/current_shape' (geometry_msgs.msg.PoseArray)    - needle frame
-# '/stage/state/guide_pose'     (geometry_msgs.msg.PoseStamped)  - robot frame
+# '/stage/state/guide_pose'     (geometry_msgs.msg.PointStamped) - robot frame
 # '/stage/initial_point'        (geometry_msgs.msg.PointStamped) - robot frame
 #
 # Publishes:    
@@ -44,6 +44,7 @@ class SmartNeedleInterface(Node):
 
         #Declare node parameters
         self.declare_parameter('use_slicer', False) # Push shape to OpenIGTLink bridge
+        self.declare_parameter('needle_length', 20.0) # Needle total length parameter
 
 #### Subscribed topics ###################################################
 
@@ -107,15 +108,16 @@ class SmartNeedleInterface(Node):
         self.shapeheader = None                     # Shape message header to push to 3D Slicer
         self.shapedata = None                       # Shape message data to push to 3D Slicer
 
-        # Flag for pushing shape to bridge
+        # Node parameters
         self.push_to_bridge = self.get_parameter('use_slicer').get_parameter_value().bool_value
+        self.needle_length = self.get_parameter('needle_lenght').get_parameter_value().double_value
 
 #### Interface initialization ###################################################
 
         # Print numpy floats with only 3 decimal places
         np.set_printoptions(formatter={'float': lambda x: "{0:0.4f}".format(x)})
 
-        # Load SmartTemplate Transform
+        # Load zFrameToRobot transform
         try:
             smart_template_share_directory = get_package_share_directory('smart_template')
             self.zFrameToRobot  = np.array(loadtxt(os.path.join(smart_template_share_directory,'files','zframe.csv'), delimiter=','))
@@ -134,7 +136,8 @@ class SmartNeedleInterface(Node):
             q_tf2= np.quaternion(np.cos(np.deg2rad(45)), 0, 0, np.sin(np.deg2rad(45)))
             q_tf = q_tf1*q_tf2   
             # Set needleToRobot transform         
-            self.needleToRobot = np.concatenate((self.initial_point[0:3], np.array([q_tf.w, q_tf.x, q_tf.y, q_tf.z]))) # Registration now comes from entry point
+            needle_base= np.array([self.initial_point[0], self.initial_point[1]-self.needle_length, self.initial_point[2]])
+            self.needleToRobot = np.concatenate((needle_base, np.array([q_tf.w, q_tf.x, q_tf.y, q_tf.z]))) # Registration now comes from entry point
 
     # Get skin_entry point
     def skin_entry_callback(self, msg):
@@ -152,7 +155,7 @@ class SmartNeedleInterface(Node):
         if (self.needleToRobot.size != 0):
             needle_q = self.needleToRobot[3:7]
             self.X = np.array([self.stage[0], self.stage[1], self.stage[2], needle_q[0], needle_q[1], needle_q[2], needle_q[3]]) #base in robot frame       
-            self.needle_pose = pose_inv_transform(self.X, self.needleToRobot)   # base in needle frame
+            self.needle_pose = pose_inv_transform(self.X, self.needleToRobot)   # needle base in needle frame
 
     # Get current sensor measurements
     def shape_callback(self, msg_sensor):

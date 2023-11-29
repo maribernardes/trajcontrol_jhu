@@ -10,6 +10,9 @@ from std_msgs.msg import Int8, Int16
 from geometry_msgs.msg import PoseStamped, PointStamped, Quaternion, Point, PoseArray
 from ros2_igtl_bridge.msg import Transform, PointArray
 
+from numpy import loadtxt
+from ament_index_python.packages import get_package_share_directory
+
 #########################################################################
 #
 # MRI Tracking Interface Node
@@ -21,7 +24,7 @@ from ros2_igtl_bridge.msg import Transform, PointArray
 # Subscribes:   
 # 'IGTL_TRANSFORM_IN'           (ros2_igtl_bridge.msg.Transform) - zFrame           name: CurrentTrackedTipZ
 # 'IGTL_TRANSFORM_IN'           (ros2_igtl_bridge.msg.Transform) - scanner frame    name: CurrentTrackedTipTransform
-# '/stage/state/pose'           (geometry_msgs.msg.PoseStamped)  - robot frame
+# '/stage/state/guide_pose'     (geometry_msgs.msg.PointStamped)  - robot frame
 # '/stage/initial_point'        (geometry_msgs.msg.PointStamped) - robot frame
 #
 # Publishes:    
@@ -36,6 +39,8 @@ class MRITrackingInterface(Node):
     def __init__(self):
         super().__init__('mri_tracking_interface')
 
+        self.declare_parameter('needle_length', 20.0) # Needle total length parameter
+
 #### Subscribed topics ###################################################
 
         #Topics from 3D Slicer interface (OpenIGTLink Bridge)
@@ -43,7 +48,7 @@ class MRITrackingInterface(Node):
         self.subscription_bridge_transform # prevent unused variable warning
 
         #Topics from robot node (template)
-        self.subscription_robot = self.create_subscription(PoseStamped, '/stage/state/guide_pose', self.robot_callback, 10)
+        self.subscription_robot = self.create_subscription(PointStamped, '/stage/state/guide_pose', self.robot_callback, 10)
         self.subscription_robot # prevent unused variable warning
 
         #Topic from keypress node (keyboard)
@@ -71,22 +76,27 @@ class MRITrackingInterface(Node):
 #### Stored variables ###################################################
 
         self.zFrameToRobot = np.empty(shape=[0,7])  # ZFrame to robot frame transform
+
         self.tip_scanner = np.empty(shape=[0,7])    # Tracked tip position (scanner frame)
         self.Z = np.empty(shape=[0,7])            # Tracked tip position (robot frame)
         self.initial_point = np.empty(shape=[0,3])  # Needle guide position at begining of experiment (robot frame)
         self.stage = np.empty(shape=[0,3])          # Robot current position (robot frame)
         self.X = np.empty(shape=[0,7])              # Base pose (robot frame)
 
+        # Node parameters
+        self.needle_length = self.get_parameter('needle_lenght').get_parameter_value().double_value
+
 #### Interface initialization ###################################################
 
-        # Initialize zFrameToRobot transform
-        # Fixed relation from geometry of robot and zFrame attachment
-        q_tf = np.quaternion(np.cos(np.deg2rad(45)), np.sin(np.deg2rad(45)), 0, 0)
-        zFrameCenter = np.array([0,0,0])
-        self.zFrameToRobot = np.concatenate((zFrameCenter, np.array([q_tf.w, q_tf.x, q_tf.y, q_tf.z])))
-        
         # Print numpy floats with only 3 decimal places
         np.set_printoptions(formatter={'float': lambda x: "{0:0.4f}".format(x)})
+
+        # Load zFrameToRobot transform
+        try:
+            smart_template_share_directory = get_package_share_directory('smart_template')
+            self.zFrameToRobot  = np.array(loadtxt(os.path.join(smart_template_share_directory,'files','zframe.csv'), delimiter=','))
+        except IOError:
+            self.get_logger().info('Could not find zframe.csv file')
 
 #### Listening callbacks ###################################################
 
@@ -99,8 +109,9 @@ class MRITrackingInterface(Node):
             q_tf1= np.quaternion(np.cos(np.deg2rad(45)), np.sin(np.deg2rad(45)), 0, 0)
             q_tf2= np.quaternion(np.cos(np.deg2rad(45)), 0, 0, np.sin(np.deg2rad(45)))
             q_tf = q_tf1*q_tf2   
-            # Set needleToRobot transform         
-            self.needleToRobot = np.concatenate((self.initial_point[0:3], np.array([q_tf.w, q_tf.x, q_tf.y, q_tf.z]))) # Registration now comes from entry point
+            # Set needleToRobot transform
+            needle_base = np.array([self.initial_point[0], self.initial_point[1]-self.needle_length, self.initial_point[2]])
+            self.needleToRobot = np.concatenate((needle_base, np.array([q_tf.w, q_tf.x, q_tf.y, q_tf.z]))) # Registration now comes from entry point
 
     # Get tracked tip pose and convert to robot frame
     def bridge_transform_callback(self, msg):
@@ -118,8 +129,8 @@ class MRITrackingInterface(Node):
 
     # Get current robot pose
     def robot_callback(self, msg_robot):
-        robot = msg_robot.pose
-        self.stage = np.array([robot.position.x, robot.position.y, robot.position.z])
+        robot = msg_robot.point
+        self.stage = np.array([robot.x, robot.y, robot.z])
         # Store current needle base pose (in robot and needle frames)
         if (self.needleToRobot.size != 0):
             needle_q = self.needleToRobot[3:7]
