@@ -20,10 +20,15 @@ def generate_launch_description():
         default_value = "2",
         description = "virtual = 1, real = 2"
     )  
-    arg_motion_step = DeclareLaunchArgument(
-            "motion_step",
+    arg_lateral_step = DeclareLaunchArgument(
+            "lateral_step",
             default_value = "1.0",
-            description = "Step size in mm"
+            description = "Lateral step size in mm"
+    )
+    arg_insertion_step = DeclareLaunchArgument(
+            "insertion_step",
+            default_value = "10.0",
+            description = "Insertion step size in mm"
     )
 
     launch_directory = os.path.join(get_package_share_directory('smart_template'), 'launch')
@@ -45,8 +50,9 @@ def generate_launch_description():
         package = "trajcontrol",
         executable = "controller_manual_smart",
         parameters = [
-            {"motion_step": 1.0}
-            ]
+            {"lateral_step": LaunchConfiguration('lateral_step')},
+            {"insertion_step": LaunchConfiguration('insertion_step')},
+        ]
     )
 
     # # Save data to filename defined by user
@@ -58,11 +64,11 @@ def generate_launch_description():
 
     # Include launch arguments
     ld.add_action(arg_sim_level)
-    ld.add_action(arg_motion_step)
-    
+    ld.add_action(arg_lateral_step)
+    ld.add_action(arg_insertion_step)
+
     ld.add_action(hardware_launch)
     ld.add_action(virtual_launch)
-    ld.add_action(initialization)
     ld.add_action(manual_control)
     
     return ld

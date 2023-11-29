@@ -21,6 +21,11 @@ def generate_launch_description():
         default_value = "2",
         description = "virtual = 1, real = 2"
     )  
+    arg_needle_length = DeclareLaunchArgument(
+        "needle_length",
+        default_value = "20.0",
+        description = "Set the needle total lenght [mm]"
+    )
     arg_use_slicer = DeclareLaunchArgument(
         "use_slicer",
         default_value = "False",
@@ -31,6 +36,16 @@ def generate_launch_description():
         default_value = "10.0",
         description = "Set total insertion lenght inside tissue [mm]. Valid only if use_slicer is True"
     )
+    arg_lateral_step = DeclareLaunchArgument(
+            "lateral_step",
+            default_value = "1.0",
+            description = "Lateral step size in mm"
+    )
+    arg_insertion_step = DeclareLaunchArgument(
+            "insertion_step",
+            default_value = "10.0",
+            description = "Insertion step size in mm"
+    )    
 
     launch_directory = os.path.join(get_package_share_directory('smart_template'), 'launch')
     hardware_launch = IncludeLaunchDescription(
@@ -46,12 +61,13 @@ def generate_launch_description():
         )
     )
 
-    # Use mri tracking interface
+    # Use SmartNeedle interface
     smart_needle_interface = Node(
         package = "trajcontrol",
         executable = "smart_needle_interface",
         parameters = [
-            {"use_slicer": LaunchConfiguration('use_slicer')}
+            {"use_slicer": LaunchConfiguration('use_slicer')},
+            {"needle_length": LaunchConfiguration('needle_length')}
         ]
     )
 
@@ -63,7 +79,7 @@ def generate_launch_description():
             {"use_slicer": LaunchConfiguration('use_slicer')},
             {"air_gap": 1.0},
             {"insertion_length": LaunchConfiguration('insertion_length')}
-            ]
+        ]
     )
 
     # Use manual controller
@@ -71,8 +87,9 @@ def generate_launch_description():
         package = "trajcontrol",
         executable = "controller_manual_smart",
         parameters = [
-            {"motion_step": 1.0}
-            ]
+            {"lateral_step": LaunchConfiguration('lateral_step')},
+            {"insertion_step": LaunchConfiguration('insertion_step')},
+        ]
     )
 
     # # Save data to filename defined by user
@@ -85,8 +102,11 @@ def generate_launch_description():
     # Include launch arguments
     ld.add_action(arg_sim_level)
     ld.add_action(arg_use_slicer)
+    ld.add_action(arg_needle_length)
     ld.add_action(arg_insertion_length)
-    
+    ld.add_action(arg_lateral_step)
+    ld.add_action(arg_insertion_step)
+        
     ld.add_action(hardware_launch)
     ld.add_action(virtual_launch)
     ld.add_action(smart_needle_interface)
