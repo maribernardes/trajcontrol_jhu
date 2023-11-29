@@ -9,6 +9,7 @@ from action_msgs.msg import GoalStatus
 from geometry_msgs.msg import PoseStamped, PointStamped
 from smart_control_interfaces.action import MoveStage
 from smart_control_interfaces.srv import ControllerCommand
+from functools import partial
 
 #########################################################################
 #
@@ -51,13 +52,13 @@ class ControllerManualSmart(Node):
         # Action client 
         self.action_client = ActionClient(self, MoveStage, '/move_stage')
         while not self.action_client.wait_for_server(timeout_sec=1.0):
-            self.get_logger().info('SmartTemplate action server not available, waiting again...')
+            self.get_logger().warn('SmartTemplate action server not available, waiting again...')
         self.get_logger().info('SmartTemplate available')
 
         # Service client
         self.service_client = self.create_client(ControllerCommand, '/command')
         while not self.service_client.wait_for_service(timeout_sec=1.0):
-            self.get_logger().info('SmartTemplate service server not available, waiting again...')
+            self.get_logger().warn('SmartTemplate service server not available, waiting again...')
         self.get_logger().info('SmartTemplate available')
 
 #### Stored variables ###################################################
@@ -127,23 +128,19 @@ class ControllerManualSmart(Node):
 
     # Send Command service to robot 
     def command(self, cmd_string):
-        srv_request = ControllerCommand.Request()
-        srv_request.command = cmd_string
-        srv_future = self.service_client.call_async(srv_request)
-        self.get_logger().info('After async call')
-        # See if the service has replied
-        if srv_future.done():
-            try:
-                response = srv_future.result()
-            except Exception as e:
-                self.get_logger().info('Service call failed %r' % (e,))
-            else:
-                self.get_logger().info('Service call returned: %s' %(response.response))
+        request = ControllerCommand.Request()
+        request.command = cmd_string
+        future = self.service_client.call_async(request)
+        future.add_done_callback(partial(self.get_response_callback))
 
-        # rclpy.spin_until_future_complete(self, srv_future)
-        # self.get_logger().info('Service response: %s' %(srv_future.response()))
-        # return srv_future.response()
-
+    # Get Command service response message (Response)
+    def get_response_callback(self, future):
+        try:
+            response = future.result()
+            self.get_logger().info('Service call sucessful: %s' %(response.response)) 
+        except Exception as e:
+            self.get_logger().error('Service call failed: %r' %(e,))
+        
 #### Action call functions ###################################################
 
     # Send MoveStage action to robot
