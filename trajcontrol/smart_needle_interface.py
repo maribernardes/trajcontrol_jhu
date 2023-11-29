@@ -53,7 +53,7 @@ class SmartNeedleInterface(Node):
         self.subscription_sensor # prevent unused variable warning
 
         #Topics from robot node
-        self.subscription_robot = self.create_subscription(PoseStamped, '/stage/state/guide_pose', self.robot_callback, 10)
+        self.subscription_robot = self.create_subscription(PointStamped, '/stage/state/guide_pose', self.robot_callback, 10)
         self.subscription_robot # prevent unused variable warning
 
         # Topics from planning node
@@ -66,21 +66,23 @@ class SmartNeedleInterface(Node):
 #### Published topics ###################################################
 
         # Tip (robot frame)
-        timer_period_tip = 0.3 # seconds
+        timer_period_tip = 0.4 # seconds
         self.timer_tip = self.create_timer(timer_period_tip, self.timer_tip_callback)
         self.publisher_tip = self.create_publisher(PoseStamped, '/sensor/tip', 10)  #(stage frame)
 
         # Base (robot frame)
-        timer_period_base = 0.3 # seconds
+        timer_period_base = 0.4 # seconds
         self.timer_base = self.create_timer(timer_period_base, self.timer_base_callback)
         self.publisher_base = self.create_publisher(PoseStamped,'/sensor/base', 10) #(stage frame)      
 
-        # Skin_entry and Base (needle frame)
-        timer_period_needle_pose = 0.3 # seconds
+        # Base (needle frame)
+        timer_period_needle_pose = 0.4 # seconds
         self.timer_needle_pose = self.create_timer(timer_period_needle_pose, self.timer_needle_pose_callback)        
         self.publisher_needle_pose = self.create_publisher(PoseStamped,'/stage/state/needle_pose', 10)  #(needle frame)
-        timer_period_needle_pose = 1.0 # seconds
-        self.timer_skin_entry_needle = self.create_timer(timer_period_needle_pose, self.timer_skin_entry_needle_callback)        
+        
+        # Skin_entry (needle frame)
+        timer_period_skin_entry_needle = 1.0 # seconds
+        self.timer_skin_entry_needle = self.create_timer(timer_period_skin_entry_needle, self.timer_skin_entry_needle_callback)        
         self.publisher_skin_entry_needle = self.create_publisher(Point, '/needle/state/skin_entry', 10) #(needle frame)
 
         # Needle shape (zFrame)
@@ -110,7 +112,7 @@ class SmartNeedleInterface(Node):
 
         # Node parameters
         self.push_to_bridge = self.get_parameter('use_slicer').get_parameter_value().bool_value
-        self.needle_length = self.get_parameter('needle_lenght').get_parameter_value().double_value
+        self.needle_length = self.get_parameter('needle_length').get_parameter_value().double_value
 
 #### Interface initialization ###################################################
 
@@ -146,11 +148,14 @@ class SmartNeedleInterface(Node):
             # Store skin_entry point
             skin_entry = np.array([skin_entry.x, skin_entry.y, skin_entry.z, 1,0,0,0])
             self.skin_entry_needle = pose_inv_transform(skin_entry, self.needleToRobot)[0:3]   # skin_entry in needle frame
+            # Publish immediately
+            msg = Point(x=self.skin_entry_needle[0], y=self.skin_entry_needle[1], z=self.skin_entry_needle[2])
+            self.publisher_skin_entry_needle.publish(msg)
 
     # Get current robot pose
     def robot_callback(self, msg_robot):
-        robot = msg_robot.pose
-        self.stage = np.array([robot.position.x, robot.position.y, robot.position.z])
+        robot = msg_robot.point
+        self.stage = np.array([robot.x, robot.y, robot.z])
         # Store current needle base pose (in robot and needle frames)
         if (self.needleToRobot.size != 0):
             needle_q = self.needleToRobot[3:7]
@@ -159,6 +164,7 @@ class SmartNeedleInterface(Node):
 
     # Get current sensor measurements
     def shape_callback(self, msg_sensor):
+        self.get_logger().info('Shape published')
         # From shape, get tip (last point)
         self.shapecount += 1
         shape = msg_sensor.poses      
@@ -166,7 +172,6 @@ class SmartNeedleInterface(Node):
         tip = np.array([shape[N-1].position.x, shape[N-1].position.y, shape[N-1].position.z])  #get tip
         q = np.array([shape[N-1].orientation.w, shape[N-1].orientation.x, shape[N-1].orientation.y, shape[N-1].orientation.z])
         self.sensorZ = np.array([tip[0], tip[1], tip[2], q[0], q[1], q[2], q[3]])
-        self.get_logger().info('Shape published')
         # Transform from needle to robot frame
         if (self.needleToRobot.size != 0): 
             self.Z = pose_transform(self.sensorZ, self.needleToRobot)

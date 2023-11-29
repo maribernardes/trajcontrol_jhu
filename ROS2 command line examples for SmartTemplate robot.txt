@@ -48,7 +48,7 @@ ros2 launch ros2_igtl_bridge bridge.launch.py
 *Launch SmartTemplate packages
 ros2 launch smart_template robot.launch.py sim_level:=1 
 ros2 run smart_template keypress
-ros2 launch trajcontrol smartneedle_experiment.launch.py use_slicer:=True
+ros2 launch trajcontrol smartneedle_experiment.launch.py
 
 OBS: 
 - use_slicer argument is optional (default=False)
@@ -84,6 +84,8 @@ C) Kill zoombie nodes (Example with igtl_bridge server)
 ps -aux | grep igtl_bridge
 kill -9 NUMBER
 
+ros2 service call /command smart_control_interfaces/srv/ControllerCommand "command: HOME"
 ros2 service call /command smart_control_interfaces/srv/ControllerCommand "command: RETRACT"
+ros2 service call /command smart_control_interfaces/srv/ControllerCommand "command: ABORT"
 
-ros2 action send_goal /move_stage smart_control_interfaces/action/MoveStage "{x: 10, z: 0, eps: 0.0001}"
+ros2 action send_goal /move_stage smart_control_interfaces/action/MoveStage "{x: 10.0, z: 0, eps: 0.0001}"

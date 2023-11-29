@@ -37,7 +37,7 @@ class ControllerManualSmart(Node):
         #Declare node parameters
         self.declare_parameter('lateral_step', 1.0)             # Lateral motion step parameter
         self.declare_parameter('insertion_step', 10.0)          # Insertion step parameter
-        self.declare_parameter('wait_initialization', False)    # Wait for experiment initialization before taking commands
+        self.declare_parameter('wait_init', False)    # Wait for experiment initialization before taking commands
 
         #Topic from keypress node
         self.subscription_keyboard = self.create_subscription(Int8, '/keyboard/key', self.keyboard_callback, 10)
@@ -47,19 +47,21 @@ class ControllerManualSmart(Node):
         self.subscription_robot = self.create_subscription(PointStamped, '/stage/state/guide_pose', self.robot_callback, 10)
         self.subscription_robot # prevent unused variable warning
 
+        #Topics from planning node (Needed if 'wait_init' is True)
+        self.subscription_initial_point = self.create_subscription(PointStamped, '/stage/initial_point', self.initial_point_callback, 10)
+        self.subscription_initial_point # prevent unused variable warning
+
 #### Action/service client ###################################################
 
         # Action client 
         self.action_client = ActionClient(self, MoveStage, '/move_stage')
-        while not self.action_client.wait_for_server(timeout_sec=1.0):
+        while not self.action_client.wait_for_server(timeout_sec=5.0):
             self.get_logger().warn('SmartTemplate action server not available, waiting again...')
-        self.get_logger().info('SmartTemplate available')
 
         # Service client
         self.service_client = self.create_client(ControllerCommand, '/command')
-        while not self.service_client.wait_for_service(timeout_sec=1.0):
+        while not self.service_client.wait_for_service(timeout_sec=5.0):
             self.get_logger().warn('SmartTemplate service server not available, waiting again...')
-        self.get_logger().info('SmartTemplate available')
 
 #### Stored variables ###################################################
 
@@ -67,23 +69,28 @@ class ControllerManualSmart(Node):
         np.set_printoptions(formatter={'float': lambda x: "{0:0.4f}".format(x)})
 
         # Stored values
-        self.stage_initial = np.empty(shape=[3,0])  # Stage home position
+        self.initial_point = np.empty(shape=[3,0])  # Stage home position
         self.stage = np.empty(shape=[3,0])          # Current stage pose
-        self.robot_idle = True                      # Stage status
-
+        
         self.lateral_step = self.get_parameter('lateral_step').get_parameter_value().double_value
         self.insertion_step = self.get_parameter('insertion_step').get_parameter_value().double_value
-        self.wait_initialization = self.get_parameter('wait_initialization').get_parameter_value().bool_value
+        self.wait_initialization = self.get_parameter('wait_init').get_parameter_value().bool_value
+
+        if self.wait_initialization is True:  # Stage status
+            self.robot_idle = False                      
+        else:
+            self.robot_idle = True
 
 #### Listening callbacks ###################################################
 
     # Get robot initial point
     def initial_point_callback(self, msg):
         # Stores robot initial position (only once)
-        if (self.stage_initial.size == 0):
+        if (self.initial_point.size == 0):
             initial_point = msg.point
-            self.stage_initial = np.array([initial_point.x, initial_point.y, initial_point.z])
+            self.initial_point = np.array([initial_point.x, initial_point.y, initial_point.z])
             self.robot_idle = True                  # Initialize robot status
+            self.get_logger().info('Controller initial point received')
 
     # Get robot pose
     def robot_callback(self, msg_robot):
@@ -185,7 +192,7 @@ def main(args=None):
     if controller_manual_smart.wait_initialization is True:
         while rclpy.ok():
             rclpy.spin_once(controller_manual_smart)
-            if controller_manual_smart.stage_initial.size == 0: # Not initialized yet
+            if controller_manual_smart.initial_point.size == 0: # Not initialized yet
                 pass
             else:
                 break

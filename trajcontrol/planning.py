@@ -137,10 +137,9 @@ class Planning(Node):
                 target_zFrame = np.array([msg_point.pointdata[1].x, msg_point.pointdata[1].y, msg_point.pointdata[1].z, q.w,q.x,q.y,q.z])
                 target_robot = pose_transform(target_zFrame, self.zFrameToRobot)
                 self.target = target_robot[0:3]
-                self.get_logger().info('Skin entry (zFrame) = %s' %(skin_entry_zFrame))
                 self.get_logger().info('Skin entry (stage) = %s' %(skin_entry_robot))
-                self.get_logger().info('Target (zFrame) = %s' %(target_zFrame))
                 self.get_logger().info('Target (stage) = %s' %(target_robot))
+
     # A keyboard hotkey was pressed 
     def keyboard_callback(self, msg):
         if (self.listen_keyboard is True) and (self.initial_point.size == 0) and (msg.data == 32):  # SPACE: initialize stage initial point only ONCE
