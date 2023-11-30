@@ -90,7 +90,6 @@ class ControllerManualSmart(Node):
             initial_point = msg.point
             self.initial_point = np.array([initial_point.x, initial_point.y, initial_point.z])
             self.robot_idle = True                  # Initialize robot status
-            self.get_logger().info('Controller initial point received')
 
     # Get robot pose
     def robot_callback(self, msg_robot):
@@ -158,7 +157,7 @@ class ControllerManualSmart(Node):
         goal_msg.x = float(x)
         goal_msg.y = float(y)
         goal_msg.z = float(z)
-        goal_msg.eps = 0.0001
+        goal_msg.eps = 0.5 # in mm
         self.get_logger().info('Send goal request... Control u: x=%.4f, y=%.4f, z=%.4f' % (x, y, z))
         # Wait for action server
         self.action_client.wait_for_server()        
