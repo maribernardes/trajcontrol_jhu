@@ -348,7 +348,7 @@ def main(args=None):
 
     smart_needle_interface = SmartNeedleInterface()
 
-    smart_needle_interface.get_logger().warn('Waiting needle to publish...')
+    smart_needle_interface.get_logger().warn('Waiting smart_needle...')
     # Wait for smart_needle
     while rclpy.ok():
         rclpy.spin_once(smart_needle_interface)
@@ -357,7 +357,6 @@ def main(args=None):
         else:
             break
 
-    smart_needle_interface.get_logger().info('Received needle shape')
     rclpy.spin(smart_needle_interface)
 
     # Destroy the node explicitly

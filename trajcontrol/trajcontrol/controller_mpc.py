@@ -19,6 +19,19 @@ from trajcontrol.sensor_processing_step import INSERTION_STEP
 from trajcontrol.estimator import get_angles
 
 
+
+
+# Service client:    
+# '/planning/get_target'    (smart_control_interfaces.srv.GetPoint) - robot frame
+# '/stage/get_position'     (smart_control_interfaces.srv.GetPoint) - robot frame
+# '/needle/get_tip'         (smart_control_interfaces.srv.GetPose) - robot frame
+#
+# Action client:
+# 'stage/move'              (smart_control_interfaces.action.MoveStage) - robot frame
+
+
+
+
 SAFE_LIMIT = 6.0    # Maximum control output delta from entry point [mm]
 DEPTH_MARGIN = 1.5  # Final insertion length margin [mm]
 
