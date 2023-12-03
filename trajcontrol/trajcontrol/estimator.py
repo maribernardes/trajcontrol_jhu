@@ -77,13 +77,6 @@ class Estimator(Node):
         else:
             self.get_logger().info('This trial will NOT overwrite initial Jacobian file')
 
-#### Listening callbacks ###################################################
-
-    # Get robot pose
-    def robot_callback(self, msg_robot):
-        robot = msg_robot.point
-        self.X = np.array([robot.x, robot.y, robot.z])
-
 #### Service client ###################################################
 
         # SmartNeedle interface service client
@@ -108,6 +101,13 @@ class Estimator(Node):
         self.service_server_jacobian = self.create_service(GetMatrix, '/get_jacobian', self.get_jacobian_callback)
         self.get_logger().info('Service /get_jacobian is now available')
 
+#### Listening callbacks ###################################################
+
+    # Get robot pose
+    def robot_callback(self, msg_robot):
+        robot = msg_robot.point
+        self.X = np.array([robot.x, robot.y, robot.z])
+        
 #### Service client functions ###################################################
 
     # Send get_tip request 

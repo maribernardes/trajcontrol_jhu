@@ -20,10 +20,9 @@ find_package(ament_cmake REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(smart_control_interfaces REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
-  "srv/GetPoint.srv"
-  "srv/GetPose.srv"
   "srv/GetJacobian.srv"
   DEPENDENCIES geometry_msgs sensor_msgs
   ADD_LINTER_TESTS

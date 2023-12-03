@@ -46,7 +46,6 @@ class ControllerOpenLoop(Node):
         #Declare node parameters
         self.declare_parameter('lateral_step', 1.0)             # Lateral motion step parameter
         self.declare_parameter('insertion_step', 10.0)          # Insertion step parameter
-        self.declare_parameter('wait_init', False)              # Wait for experiment initialization before taking commands
 
 #### Stored variables ###################################################
 
@@ -54,19 +53,14 @@ class ControllerOpenLoop(Node):
         np.set_printoptions(formatter={'float': lambda x: "{0:0.4f}".format(x)})
 
         # Stored values
-        self.initial_point = np.empty(shape=[3,0])  # Stage home position
-        self.stage = np.empty(shape=[3,0])          # Current stage pose
+        self.stage = np.empty(shape=[3,0])          # Current stage position
+        self.target = np.empty(shape=[3,0])         # Planned target point
         
         self.lateral_step = self.get_parameter('lateral_step').get_parameter_value().double_value
         self.insertion_step = self.get_parameter('insertion_step').get_parameter_value().double_value
-        self.wait_initialization = self.get_parameter('wait_init').get_parameter_value().bool_value
 
-        if self.wait_initialization is True:  # Stage status
-            self.robot_idle = False                      
-            self.planning_client = self.create_client(GetPoint, '/get_planning_point')
-            self.get_logger().info('Waiting robot initialization...')
-        else:
-            self.robot_idle = True
+        self.robot_idle = False 
+        self.step = 0                     
 
 #### Subscribed topics ###################################################
 
@@ -80,15 +74,21 @@ class ControllerOpenLoop(Node):
 
 #### Action/service client ###################################################
 
-        # Action client 
+        # Robot Action client 
         self.action_client = ActionClient(self, MoveStage, '/move_stage')
         while not self.action_client.wait_for_server(timeout_sec=5.0):
             self.get_logger().warn('SmartTemplate action server not available, waiting again...')
 
-        # Service client
+        # Robot Service client
         self.service_client = self.create_client(ControllerCommand, '/command')
         while not self.service_client.wait_for_service(timeout_sec=5.0):
             self.get_logger().warn('SmartTemplate service server not available, waiting again...')
+
+        # Planning Service client
+        self.planning_client = self.create_client(GetPoint, '/get_planning_point')
+        while not self.planning_client.wait_for_service(timeout_sec=5.0):
+            self.get_logger().warn('Planning service server not available, waiting again...')
+        self.robot_idle = True  
 
 #### Listening callbacks ###################################################
 
@@ -101,35 +101,14 @@ class ControllerOpenLoop(Node):
     def keyboard_callback(self, msg):
         # Only takes new control input after converged to previous
         if (self.robot_idle is True):
+            self.step += 1
             x = self.stage[0]
             y = self.stage[1]
             z = self.stage[2]
             # Send move_stage action
-            if (msg.data == 50): # move down
-                z = z - self.lateral_step
-                self.move_stage(x, y, z) 
-            elif (msg.data == 52): # move left
-                x = x - self.lateral_step
-                self.move_stage(x, y, z) 
-            elif (msg.data == 54): # move right
-                x = x + self.lateral_step
-                self.move_stage(x, y, z) 
-            elif (msg.data == 56): # move up
-                z = z + self.lateral_step
-                self.move_stage(x, y, z) 
-            elif (msg.data == 10): # insert one step
-                y = y + self.insertion_step
-                self.move_stage(x, y, z) 
-            elif (msg.data == 32): # retract one step
+            if (msg.data == 32): # retract one step
                 y = y - self.insertion_step
                 self.move_stage(x, y, z) 
-            # Send command service
-            elif (msg.data == 65): # abort
-                self.command('ABORT')
-            elif (msg.data == 72): # home
-                self.command('HOME')
-            elif (msg.data == 82): # retract
-                self.command('RETRACT')
 
 #### Service client functions ###################################################
 
@@ -194,12 +173,10 @@ def main(args=None):
         if not controller_openloop.planning_client.service_is_ready():
             pass
         else:
-            controller_openloop.planning_client.destroy()
-            controller_openloop.robot_idle = True  
             break
 
-    controller_openloop.get_logger().info('***** Ready to manually control *****')
-    controller_openloop.get_logger().info('Use arrows from numerical keyboad to move template')
+    controller_openloop.get_logger().info('***** Ready to INSERT *****')
+    controller_openloop.get_logger().info('Target: =%s' %controller_openloop.target)
     controller_openloop.get_logger().info('Use enter/space to insert/retract the needle')
     controller_openloop.get_logger().info('H = HOME, R = RETRACT, A = ABORT')
 

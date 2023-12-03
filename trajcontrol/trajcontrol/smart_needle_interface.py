@@ -8,11 +8,12 @@ from rclpy.node import Node
 from numpy import loadtxt
 from geometry_msgs.msg import PoseArray, PoseStamped, PointStamped, Quaternion, Point
 from ros2_igtl_bridge.msg import PointArray, String
-from trajcontrol_interfaces.srv import GetPoint, GetPose
+from smart_control_interfaces.srv import GetPose, GetPoint
 from functools import partial
 
 from numpy import loadtxt
 from ament_index_python.packages import get_package_share_directory
+
 #########################################################################
 #
 # SmartNeedle Interface Node
@@ -29,7 +30,6 @@ from ament_index_python.packages import get_package_share_directory
 # '/stage/state/guide_pose'     (geometry_msgs.msg.PointStamped) - robot frame
 #
 # Publishes:    
-# '/needle/state/tip'           (geometry_msgs.msg.PoseStamped)   - robot frame
 # '/stage/state/needle_pose'    (geometry_msgs.msg.PoseStamped)   - needle frame
 # '/needle/state/skin_entry'    (geometry_msgs.msg.Point)         - needle frame
 # 'IGTL_STRING_OUT'             (ros2_igtl_bridge.msg.String)     - zFrame
@@ -45,17 +45,18 @@ from ament_index_python.packages import get_package_share_directory
 # '/get_needle_base'            (trajcontrol_interfaces.srv.GetPose) - robot frame
 #  OBS: request.name: base"
 #
-#########################################################################
-
+#################################################################################
 class SmartNeedleInterface(Node):
+
+#### Node initialization###################################################
 
     def __init__(self):
         super().__init__('smart_needle_interface')
 
         #Declare node parameters
-        self.declare_parameter('use_slicer', False) # Push shape to OpenIGTLink bridge
+        self.declare_parameter('use_slicer', True) # Push shape to OpenIGTLink bridge
 
-#### Stored variables ###################################################
+    #### Stored variables ###################################################
 
         # Node parameters
         self.push_to_bridge = self.get_parameter('use_slicer').get_parameter_value().bool_value
@@ -77,7 +78,7 @@ class SmartNeedleInterface(Node):
         self.shapeheader = None                     # Shape message header to push to 3D Slicer
         self.shapedata = None                       # Shape message data to push to 3D Slicer
 
-#### Subscribed topics ###################################################
+    #### Subscribed topics ###################################################
 
         #Topics from smart needle node
         self.subscription_sensor = self.create_subscription(PoseArray, '/needle/state/current_shape', self.shape_callback,  10)
@@ -87,7 +88,7 @@ class SmartNeedleInterface(Node):
         self.subscription_robot = self.create_subscription(PointStamped, '/stage/state/guide_pose', self.robot_callback, 10)
         self.subscription_robot # prevent unused variable warning
 
-#### Published topics ###################################################
+    #### Published topics ###################################################
 
         # Tip (robot frame)
         timer_period_tip = 0.3 # seconds
@@ -111,25 +112,24 @@ class SmartNeedleInterface(Node):
             self.publisher_shapeheader = self.create_publisher(String, 'IGTL_STRING_OUT', 10)
             self.publisher_shape = self.create_publisher(PointArray, 'IGTL_POINT_OUT', 10)
 
-#### Service client ###################################################
+    #### Service client ###################################################
 
         # Planning service client
         # OBS: Node will not spin until services are available
-        self.service_client = self.create_client(GetPoint, '/get_planning_point')
+        self.service_client = self.create_client(GetPoint, '/planning/get_target')
         if not self.service_client.service_is_ready():
             self.get_logger().warn('Planning service server not available, waiting...')
         while not self.service_client.wait_for_service(timeout_sec=5.0):
             pass
         self.get_logger().warn('Planning service available')
             
+    #### Service server ###################################################
 
-# #### Service server ###################################################
+        # Service server to return planning points
+        self.service_server_base = None  # Activate only after self.stage is available
+        self.service_server_tip = None   # Activate only after self.Z is available
 
-#         # Service server to return planning points
-#         self.service_server_base = None  # Activate only after self.X is available
-#         self.service_server_tip = None   # Activate only after self.Z is available
-
-#### Interface initialization ###################################################
+    #### Variables initialization ###################################################
 
         # Print numpy floats with only 3 decimal places
         np.set_printoptions(formatter={'float': lambda x: "{0:0.4f}".format(x)})
@@ -142,12 +142,12 @@ class SmartNeedleInterface(Node):
             self.get_logger().info('Could not find zframe.csv file')
 
         # Initialize planning points
-        initial_point = self.get_planning_point('initial_point')
+        initial_point = self.get_initial_point('initial_point')
         if initial_point.valid is True:
             self.initial_point = np.array([initial_point.x, initial_point.y, initial_point.z])
         else:
             self.get_logger().info('Invalid initial_point')
-        skin_entry = self.get_planning_point('skin_entry')
+        skin_entry = self.get_skin_entry('skin_entry')
         if skin_entry.valid is True:
             self.skin_entry = np.array([skin_entry.x, skin_entry.y, skin_entry.z])
         else:
@@ -164,53 +164,54 @@ class SmartNeedleInterface(Node):
         skin_entry_robot = np.array([skin_entry.x, skin_entry.y, skin_entry.z, 1,0,0,0])
         self.skin_entry_needle = pose_inv_transform(skin_entry_robot, self.needleToRobot)[0:3]   # skin_entry in needle frame            
 
+#################################################################################
 #### Service client functions ###################################################
 
     # Send Command service to robot 
-    def get_planning_point(self, point_name):
+    def get_target_point(self, point_name):
         request = GetPoint.Request()
         request.name = point_name
         future = self.service_client.call_async(request)
         rclpy.spin_until_future_complete(self, future)
         return future.result()
 
-# #### Service server functions ###################################################
+#### Service server functions ###################################################
 
-#     # Send requested tip pose in robot frame
-#     def get_tip_callback(self, request, response):
-#         pose_name = request.name
-#         self.get_logger().debug('Received %s request' %(pose_name))
-#         if pose_name == 'tip':
-#             if (self.Z.size == 0):
-#                 response.valid = False
-#             else:
-#                 response.valid = True
-#                 response.x = self.Z[0]
-#                 response.y = self.Z[1]
-#                 response.z = self.Z[2]
-#                 response.qw = self.Z[3]
-#                 response.qx = self.Z[4]
-#                 response.qy = self.Z[5]
-#                 response.qz = self.Z[6]        
-#         return response    
+    # Send requested tip pose in robot frame
+    def get_tip_callback(self, request, response):
+        pose_name = request.name
+        self.get_logger().debug('Received %s request' %(pose_name))
+        if pose_name == 'tip':
+            if (self.Z.size == 0):
+                response.valid = False
+            else:
+                response.valid = True
+                response.x = self.Z[0]
+                response.y = self.Z[1]
+                response.z = self.Z[2]
+                response.qw = self.Z[3]
+                response.qx = self.Z[4]
+                response.qy = self.Z[5]
+                response.qz = self.Z[6]        
+        return response    
 
-#     # Send requested base pose in robot frame
-#     def get_base_callback(self, request, response):
-#         pose_name = request.name
-#         self.get_logger().debug('Received %s request' %(pose_name))
-#         if pose_name == 'base':
-#             if (self.X.size == 0):
-#                 response.valid = False
-#             else:
-#                 response.valid = True
-#                 response.x = self.X[0]
-#                 response.y = self.X[1]
-#                 response.z = self.X[2]
-#                 response.qw = self.X[3]
-#                 response.qx = self.X[4]
-#                 response.qy = self.X[5]
-#                 response.qz = self.X[6]        
-#         return response  
+    # Send requested base pose in robot frame
+    def get_base_callback(self, request, response):
+        pose_name = request.name
+        self.get_logger().debug('Received %s request' %(pose_name))
+        if pose_name == 'base':
+            if (self.X.size == 0):
+                response.valid = False
+            else:
+                response.valid = True
+                response.x = self.X[0]
+                response.y = self.X[1]
+                response.z = self.X[2]
+                response.qw = self.X[3]
+                response.qx = self.X[4]
+                response.qy = self.X[5]
+                response.qz = self.X[6]        
+        return response  
 
 #### Listening callbacks ###################################################
 
@@ -218,11 +219,15 @@ class SmartNeedleInterface(Node):
     def robot_callback(self, msg_robot):
         robot = msg_robot.point
         self.stage = np.array([robot.x, robot.y, robot.z])
-        # Store current needle base pose (in robot and needle frames)
+        # Store current needle base pose (in needle frame)
         if (self.needleToRobot.size != 0):
             needle_q = self.needleToRobot[3:7]                                      
             needle_base = np.array([self.stage[0], self.stage[1], self.stage[2], needle_q[0], needle_q[1], needle_q[2], needle_q[3]]) # base in robot frame       
             self.needle_pose = pose_inv_transform(needle_base, self.needleToRobot)  # needle base in needle frame
+        # Make /get_base service available
+        if self.service_server_base is None:
+            self.service_server_base = self.create_service(GetPoint, '/get_base', self.get_base_callback)
+            self.get_logger().info('/get_base service is available')
 
     # Get current sensor measurements
     def shape_callback(self, msg_sensor):
@@ -237,6 +242,10 @@ class SmartNeedleInterface(Node):
         # Transform from needle to robot frame
         if (self.needleToRobot.size != 0): 
             self.Z = pose_transform(self.sensorZ, self.needleToRobot)             # needle tip in robot frame
+            # Make /get_tip service available
+            if (self.service_server_tip is None):
+                self.service_server_tip = self.create_service(GetPose, '/get_tip', self.get_tip_callback)
+                self.get_logger().info('/get_tip service is available')
             # Transform from needle to zFrame (to 3DSlicer)
             if self.push_to_bridge is True:
                 # Build shape message to push to 3D Slicer

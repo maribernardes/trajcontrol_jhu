@@ -1,4 +1,4 @@
 geometry_msgs/Pose base
 geometry_msgs/Pose tip
 ---
-sensor_msgs image_matrix
+sensor_msgs/Image image_matrix
