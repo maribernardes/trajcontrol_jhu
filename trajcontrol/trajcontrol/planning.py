@@ -36,9 +36,9 @@ from ament_index_python.packages import get_package_share_directory
 # '/stage/state/guide_pose' (geometry_msgs.msg.PointStamped)  - robot frame
 #
 # Service server:    
-# '/planning/get_skin_entry'          (trajcontrol_interfaces.srv.GetPoint) - robot frame
-# '/planning//get_target'             (trajcontrol_interfaces.srv.GetPoint) - robot frame
-# '/planning//get_initial_point'      (trajcontrol_interfaces.srv.GetPoint) - robot frame
+# '/planning/get_skin_entry'         (trajcontrol_interfaces.srv.GetPoint) - robot frame
+# '/planning/get_target'             (trajcontrol_interfaces.srv.GetPoint) - robot frame
+# '/planning/get_initial_point'      (trajcontrol_interfaces.srv.GetPoint) - robot frame
 #
 # Action client:
 # 'stage/move'              (smart_control_interfaces.action.MoveStage) - robot frame
@@ -52,8 +52,8 @@ class Planning(Node):
 
         #Declare node parameters
         self.declare_parameter('use_slicer', True)          # Get target and skin entry from 3DSlicer
-        self.declare_parameter('air_gap', 10.0)             # Air gap between needle guide and tissue - Set target and skin entry from homing point
-        self.declare_parameter('insertion_length', 100.0)   # Desired insertion length                - Set target and skin entry from homing point
+        self.declare_parameter('air_gap', 10.0)             # Air gap between needle guide and tissue - use_slicer is False (set target and skin entry from homing point)
+        self.declare_parameter('insertion_length', 100.0)   # Desired insertion length                - use_slicer is False (set target and skin entry from homing point)
 
 #### Stored variables ###################################################
 
@@ -316,7 +316,8 @@ def main(args=None):
             pass
         else:
             if (planning.use_slicer is True):
-                planning.get_logger().info('Planned robot initial point = %s' %(planning.skin_entry))
+                initial_point = np.array([planning.skin_entry[0], planning.stage[1], planning.skin_entry[2]])
+                planning.get_logger().info('Planned robot initial point = %s' %(initial_point))
                 planning.get_logger().warn('**** To position robot and initialize experiment, hit SPACE ****')
                 planning.get_logger().warn('REMEMBER: Use another terminal to run keypress node')
                 planning.listen_keyboard = True
