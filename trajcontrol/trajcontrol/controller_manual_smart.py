@@ -9,6 +9,8 @@ from action_msgs.msg import GoalStatus
 from geometry_msgs.msg import PoseStamped, PointStamped
 from smart_control_interfaces.action import MoveStage
 from smart_control_interfaces.srv import ControllerCommand
+from trajcontrol_interfaces.srv import GetPoint, GetPose
+
 from functools import partial
 
 #########################################################################
@@ -21,7 +23,6 @@ from functools import partial
 # Subscribes:   
 # '/keyboard/key'               (std_msgs.msg.Int8)
 # '/stage/state/guide_pose'     (geometry_msgs.msg.PointStamped)  - robot frame
-# '/stage/initial_point'        (geometry_msgs.msg.PointStamped) - robot frame
 #
 # Action/service client:
 # '/move_stage'             (smart_control_interfaces.action.MoveStage) - robot frame
@@ -37,31 +38,7 @@ class ControllerManualSmart(Node):
         #Declare node parameters
         self.declare_parameter('lateral_step', 1.0)             # Lateral motion step parameter
         self.declare_parameter('insertion_step', 10.0)          # Insertion step parameter
-        self.declare_parameter('wait_init', False)    # Wait for experiment initialization before taking commands
-
-        #Topic from keypress node
-        self.subscription_keyboard = self.create_subscription(Int8, '/keyboard/key', self.keyboard_callback, 10)
-        self.subscription_keyboard # prevent unused variable warning
-
-        #Topics from robot node
-        self.subscription_robot = self.create_subscription(PointStamped, '/stage/state/guide_pose', self.robot_callback, 10)
-        self.subscription_robot # prevent unused variable warning
-
-        #Topics from planning node (Needed if 'wait_init' is True)
-        self.subscription_initial_point = self.create_subscription(PointStamped, '/stage/initial_point', self.initial_point_callback, 10)
-        self.subscription_initial_point # prevent unused variable warning
-
-#### Action/service client ###################################################
-
-        # Action client 
-        self.action_client = ActionClient(self, MoveStage, '/move_stage')
-        while not self.action_client.wait_for_server(timeout_sec=5.0):
-            self.get_logger().warn('SmartTemplate action server not available, waiting again...')
-
-        # Service client
-        self.service_client = self.create_client(ControllerCommand, '/command')
-        while not self.service_client.wait_for_service(timeout_sec=5.0):
-            self.get_logger().warn('SmartTemplate service server not available, waiting again...')
+        self.declare_parameter('wait_init', False)              # Wait for experiment initialization before taking commands
 
 #### Stored variables ###################################################
 
@@ -78,18 +55,34 @@ class ControllerManualSmart(Node):
 
         if self.wait_initialization is True:  # Stage status
             self.robot_idle = False                      
+            self.planning_client = self.create_client(GetPoint, '/get_planning_point')
+            self.get_logger().info('Waiting robot initialization...')
         else:
             self.robot_idle = True
 
-#### Listening callbacks ###################################################
+#### Subscribed topics ###################################################
 
-    # Get robot initial point
-    def initial_point_callback(self, msg):
-        # Stores robot initial position (only once)
-        if (self.initial_point.size == 0):
-            initial_point = msg.point
-            self.initial_point = np.array([initial_point.x, initial_point.y, initial_point.z])
-            self.robot_idle = True                  # Initialize robot status
+        #Topic from keypress node
+        self.subscription_keyboard = self.create_subscription(Int8, '/keyboard/key', self.keyboard_callback, 10)
+        self.subscription_keyboard # prevent unused variable warning
+
+        #Topics from robot node
+        self.subscription_robot = self.create_subscription(PointStamped, '/stage/state/guide_pose', self.robot_callback, 10)
+        self.subscription_robot # prevent unused variable warning
+
+#### Action/service client ###################################################
+
+        # Action client 
+        self.action_client = ActionClient(self, MoveStage, '/move_stage')
+        while not self.action_client.wait_for_server(timeout_sec=5.0):
+            self.get_logger().warn('SmartTemplate action server not available, waiting again...')
+
+        # Service client
+        self.service_client = self.create_client(ControllerCommand, '/command')
+        while not self.service_client.wait_for_service(timeout_sec=5.0):
+            self.get_logger().warn('SmartTemplate service server not available, waiting again...')
+
+#### Listening callbacks ###################################################
 
     # Get robot pose
     def robot_callback(self, msg_robot):
@@ -99,10 +92,11 @@ class ControllerManualSmart(Node):
     # A keyboard hotkey was pressed 
     def keyboard_callback(self, msg):
         # Only takes new control input after converged to previous
-        if (self.robot_idle == True):
+        if (self.robot_idle is True):
             x = self.stage[0]
             y = self.stage[1]
             z = self.stage[2]
+            self.get_logger().info('Current pose = %s' %self.stage)
             # Send move_stage action
             if (msg.data == 50): # move down
                 z = z - self.lateral_step
@@ -129,8 +123,9 @@ class ControllerManualSmart(Node):
                 self.command('HOME')
             elif (msg.data == 82): # retract
                 self.command('RETRACT')
+            self.get_logger().info('New pose = %f, %f, %f' %(x,y,z))
 
-#### Service call functions ###################################################
+#### Service client functions ###################################################
 
     # Send Command service to robot 
     def command(self, cmd_string):
@@ -147,7 +142,7 @@ class ControllerManualSmart(Node):
         except Exception as e:
             self.get_logger().error('Service call failed: %r' %(e,))
         
-#### Action call functions ###################################################
+#### Action client functions ###################################################
 
     # Send MoveStage action to robot
     def move_stage(self, x, y, z):
@@ -183,6 +178,8 @@ class ControllerManualSmart(Node):
             self.get_logger().info('Goal failed: TIMETOUT')
         self.robot_idle = True       # Set robot status to IDLE
 
+#########################################################################
+
 def main(args=None):
     rclpy.init(args=args)
     controller_manual_smart = ControllerManualSmart()
@@ -191,15 +188,18 @@ def main(args=None):
     if controller_manual_smart.wait_initialization is True:
         while rclpy.ok():
             rclpy.spin_once(controller_manual_smart)
-            if controller_manual_smart.initial_point.size == 0: # Not initialized yet
+            if not controller_manual_smart.planning_client.service_is_ready():
                 pass
             else:
+                controller_manual_smart.planning_client.destroy()
+                controller_manual_smart.robot_idle = True  
                 break
 
     controller_manual_smart.get_logger().info('***** Ready to manually control *****')
     controller_manual_smart.get_logger().info('Use arrows from numerical keyboad to move template')
     controller_manual_smart.get_logger().info('Use enter/space to insert/retract the needle')
     controller_manual_smart.get_logger().info('H = HOME, R = RETRACT, A = ABORT')
+
     rclpy.spin(controller_manual_smart)
 
     # Destroy the node explicitly

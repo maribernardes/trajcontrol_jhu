@@ -7,6 +7,7 @@ from geometry_msgs.msg import PoseArray
 from geometry_msgs.msg import Pose
 from scipy.io import loadmat
 from builtin_interfaces.msg import Time
+from ament_index_python.packages import get_package_share_directory
 
 class VirtualSmartNeedle(Node):
 
@@ -24,9 +25,13 @@ class VirtualSmartNeedle(Node):
         self.timer = self.create_timer(timer_period, self.timer_callback)
 
         #Load data from matlab file
-        file_path = os.path.join('src','trajcontrol','files',self.get_parameter('dataset').get_parameter_value().string_value + '.mat') #String with full path to file
-        trial_data = loadmat(file_path, mat_dtype=True)
-        
+        try:
+            trajcontrol_share_directory = get_package_share_directory('trajcontrol')
+            file_path  = os.path.join(trajcontrol_share_directory,'files',self.get_parameter('dataset').get_parameter_value().string_value + '.mat')
+            trial_data = loadmat(file_path, mat_dtype=True)
+        except IOError:
+            self.get_logger().info('Could not find .mat file')
+
         self.sensor = trial_data['sensor'][0]
         self.time_stamp = trial_data['time_stamp'][0]
         self.i=0

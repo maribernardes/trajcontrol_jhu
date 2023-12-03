@@ -3,7 +3,7 @@ SMART NEEDLE MODULE
 1) Slicer Version:
 
 Mac: worked with Slicer 5.3
-Ubuntu: worked with Slicer 5.3 
+Ubuntu: worked with Slicer 5.3 and 5.4
 
 2) Modules required:
 

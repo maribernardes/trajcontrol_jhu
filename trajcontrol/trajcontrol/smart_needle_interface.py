@@ -8,6 +8,8 @@ from rclpy.node import Node
 from numpy import loadtxt
 from geometry_msgs.msg import PoseArray, PoseStamped, PointStamped, Quaternion, Point
 from ros2_igtl_bridge.msg import PointArray, String
+from trajcontrol_interfaces.srv import GetPoint, GetPose
+from functools import partial
 
 from numpy import loadtxt
 from ament_index_python.packages import get_package_share_directory
@@ -25,16 +27,24 @@ from ament_index_python.packages import get_package_share_directory
 # Subscribes:   
 # '/needle/state/current_shape' (geometry_msgs.msg.PoseArray)    - needle frame
 # '/stage/state/guide_pose'     (geometry_msgs.msg.PointStamped) - robot frame
-# '/stage/initial_point'        (geometry_msgs.msg.PointStamped) - robot frame
 #
 # Publishes:    
+# '/needle/state/tip'           (geometry_msgs.msg.PoseStamped)   - robot frame
 # '/stage/state/needle_pose'    (geometry_msgs.msg.PoseStamped)   - needle frame
 # '/needle/state/skin_entry'    (geometry_msgs.msg.Point)         - needle frame
-# '/sensor/tip'                 (geometry_msgs.msg.PoseStamped)   - robot frame
-# '/sensor/base'                (geometry_msgs.msg.PoseStamped)   - robot frame
 # 'IGTL_STRING_OUT'             (ros2_igtl_bridge.msg.String)     - zFrame
 # 'IGTL_POINT_OUT'              (ros2_igtl_bridge.msg.PointArray) - zFrame
 # 
+# Service client:    
+# '/get_planning_point'             (trajcontrol_interfaces.srv.GetPoint) - robot frame
+#  name: "initial_point", "skin_entry" OR "target"
+#
+# Service server:    
+# '/get_needle_tip'             (trajcontrol_interfaces.srv.GetPose) - robot frame
+#  OBS: request.name: "tip"
+# '/get_needle_base'            (trajcontrol_interfaces.srv.GetPose) - robot frame
+#  OBS: request.name: base"
+#
 #########################################################################
 
 class SmartNeedleInterface(Node):
@@ -44,7 +54,28 @@ class SmartNeedleInterface(Node):
 
         #Declare node parameters
         self.declare_parameter('use_slicer', False) # Push shape to OpenIGTLink bridge
-        self.declare_parameter('needle_length', 20.0) # Needle total length parameter
+
+#### Stored variables ###################################################
+
+        # Node parameters
+        self.push_to_bridge = self.get_parameter('use_slicer').get_parameter_value().bool_value
+
+        self.zFrameToRobot = np.empty(shape=[0,7])      # zFrame to robot frame transform (from robot package)
+        self.needleToRobot = np.empty(shape=[0,7])      # Needle to robot frame transform (initialized from initial_point)
+
+        self.initial_point = np.empty(shape=[0,3])      # Robot position at begining of experiment (robot frame)
+        self.skin_entry = np.empty(shape=[0,3])         # Skin entry at begining of experiment (robot frame)
+        self.skin_entry_needle = np.empty(shape=[0,3])  # Skin entry at begining of experiment (needle frame)
+        
+        self.stage = np.empty(shape=[0,3])              # Robot current position (robot frame)
+        self.needle_pose = np.empty(shape=[0,7])        # Base pose (needle frame)
+        self.Z = np.empty(shape=[0,7])                  # Tip pose (robot frame)
+        self.sensorZ = np.empty(shape=[0,7])            # Tip pose (needle frame)
+
+        # NeedleShape Bridge message
+        self.shapecount = 0                         # Number of shape packace received
+        self.shapeheader = None                     # Shape message header to push to 3D Slicer
+        self.shapedata = None                       # Shape message data to push to 3D Slicer
 
 #### Subscribed topics ###################################################
 
@@ -56,63 +87,47 @@ class SmartNeedleInterface(Node):
         self.subscription_robot = self.create_subscription(PointStamped, '/stage/state/guide_pose', self.robot_callback, 10)
         self.subscription_robot # prevent unused variable warning
 
-        # Topics from planning node
-        self.subscription_initial_point = self.create_subscription(PointStamped, '/stage/initial_point', self.initial_point_callback, 10)
-        self.subscription_initial_point # prevent unused variable warning
-
-        self.subscription_skin_entry = self.create_subscription(PointStamped, '/subject/state/skin_entry', self.skin_entry_callback, 10)
-        self.subscription_skin_entry # prevent unused variable warning
-
 #### Published topics ###################################################
 
         # Tip (robot frame)
-        timer_period_tip = 0.4 # seconds
-        self.timer_tip = self.create_timer(timer_period_tip, self.timer_tip_callback)
-        self.publisher_tip = self.create_publisher(PoseStamped, '/sensor/tip', 10)  #(stage frame)
-
-        # Base (robot frame)
-        timer_period_base = 0.4 # seconds
-        self.timer_base = self.create_timer(timer_period_base, self.timer_base_callback)
-        self.publisher_base = self.create_publisher(PoseStamped,'/sensor/base', 10) #(stage frame)      
+        timer_period_tip = 0.3 # seconds
+        self.timer_tip = self.create_timer(timer_period_tip, self.timer_tip_callback)        
+        self.publisher_tip = self.create_publisher(PoseStamped,'/needle/state/tip', 10)  #(robot frame)
 
         # Base (needle frame)
-        timer_period_needle_pose = 0.4 # seconds
+        timer_period_needle_pose = 0.3 # seconds
         self.timer_needle_pose = self.create_timer(timer_period_needle_pose, self.timer_needle_pose_callback)        
         self.publisher_needle_pose = self.create_publisher(PoseStamped,'/stage/state/needle_pose', 10)  #(needle frame)
         
         # Skin_entry (needle frame)
-        timer_period_skin_entry_needle = 1.0 # seconds
+        timer_period_skin_entry_needle = 0.3 # seconds
         self.timer_skin_entry_needle = self.create_timer(timer_period_skin_entry_needle, self.timer_skin_entry_needle_callback)        
         self.publisher_skin_entry_needle = self.create_publisher(Point, '/needle/state/skin_entry', 10) #(needle frame)
 
         # Needle shape (zFrame)
-        timer_period_shape = 1.0 # seconds
-        self.timer_shape = self.create_timer(timer_period_shape, self.timer_shape_callback)        
-        self.publisher_shapeheader = self.create_publisher(String, 'IGTL_STRING_OUT', 10)
-        self.publisher_shape = self.create_publisher(PointArray, 'IGTL_POINT_OUT', 10)
+        if self.push_to_bridge is True:
+            timer_period_shape = 1.0 # seconds
+            self.timer_shape = self.create_timer(timer_period_shape, self.timer_shape_callback)        
+            self.publisher_shapeheader = self.create_publisher(String, 'IGTL_STRING_OUT', 10)
+            self.publisher_shape = self.create_publisher(PointArray, 'IGTL_POINT_OUT', 10)
 
+#### Service client ###################################################
 
-#### Stored variables ###################################################
+        # Planning service client
+        # OBS: Node will not spin until services are available
+        self.service_client = self.create_client(GetPoint, '/get_planning_point')
+        if not self.service_client.service_is_ready():
+            self.get_logger().warn('Planning service server not available, waiting...')
+        while not self.service_client.wait_for_service(timeout_sec=5.0):
+            pass
+        self.get_logger().warn('Planning service available')
+            
 
-        self.zFrameToRobot = np.empty(shape=[0,7])      # zFrame to robot frame transform (from robot package)
-        self.needleToRobot = np.empty(shape=[0,7])      # Needle to robot frame transform (initialized from initial_point)
+# #### Service server ###################################################
 
-        self.initial_point = np.empty(shape=[0,3])      # Robot position at begining of experiment (robot frame)
-        self.skin_entry_needle = np.empty(shape=[0,3])  # Skin entry at begining of experiment (needle frame)
-        self.stage = np.empty(shape=[0,3])              # Robot current position (robot frame)
-        self.X = np.empty(shape=[0,7])                  # Base pose (robot frame)
-        self.needle_pose = np.empty(shape=[0,7])        # Base pose (needle frame)
-        self.Z = np.empty(shape=[0,7])                  # Tip pose (robot frame)
-        self.sensorZ = np.empty(shape=[0,7])            # Tip pose (needle frame)
-
-        # NeedleShape Bridge message
-        self.shapecount = 0                         # Number of shape packace received
-        self.shapeheader = None                     # Shape message header to push to 3D Slicer
-        self.shapedata = None                       # Shape message data to push to 3D Slicer
-
-        # Node parameters
-        self.push_to_bridge = self.get_parameter('use_slicer').get_parameter_value().bool_value
-        self.needle_length = self.get_parameter('needle_length').get_parameter_value().double_value
+#         # Service server to return planning points
+#         self.service_server_base = None  # Activate only after self.X is available
+#         self.service_server_tip = None   # Activate only after self.Z is available
 
 #### Interface initialization ###################################################
 
@@ -126,31 +141,78 @@ class SmartNeedleInterface(Node):
         except IOError:
             self.get_logger().info('Could not find zframe.csv file')
 
+        # Initialize planning points
+        initial_point = self.get_planning_point('initial_point')
+        if initial_point.valid is True:
+            self.initial_point = np.array([initial_point.x, initial_point.y, initial_point.z])
+        else:
+            self.get_logger().info('Invalid initial_point')
+        skin_entry = self.get_planning_point('skin_entry')
+        if skin_entry.valid is True:
+            self.skin_entry = np.array([skin_entry.x, skin_entry.y, skin_entry.z])
+        else:
+            self.get_logger().info('Invalid skin_entry point')
+ 
+        # Set needleToRobot transform         
+        q_tf1= np.quaternion(np.cos(np.deg2rad(-45)), np.sin(np.deg2rad(-45)), 0, 0)
+        q_tf2= np.quaternion(np.cos(np.deg2rad(90)), 0, 0, np.sin(np.deg2rad(90)))
+        q_tf = q_tf1*q_tf2  
+        needle_base= np.array([self.initial_point[0], self.initial_point[1], self.initial_point[2]])  # stage initial_point
+        self.needleToRobot = np.concatenate((needle_base, np.array([q_tf.w, q_tf.x, q_tf.y, q_tf.z])))
+
+        # Store skin_entry point in needle frame
+        skin_entry_robot = np.array([skin_entry.x, skin_entry.y, skin_entry.z, 1,0,0,0])
+        self.skin_entry_needle = pose_inv_transform(skin_entry_robot, self.needleToRobot)[0:3]   # skin_entry in needle frame            
+
+#### Service client functions ###################################################
+
+    # Send Command service to robot 
+    def get_planning_point(self, point_name):
+        request = GetPoint.Request()
+        request.name = point_name
+        future = self.service_client.call_async(request)
+        rclpy.spin_until_future_complete(self, future)
+        return future.result()
+
+# #### Service server functions ###################################################
+
+#     # Send requested tip pose in robot frame
+#     def get_tip_callback(self, request, response):
+#         pose_name = request.name
+#         self.get_logger().debug('Received %s request' %(pose_name))
+#         if pose_name == 'tip':
+#             if (self.Z.size == 0):
+#                 response.valid = False
+#             else:
+#                 response.valid = True
+#                 response.x = self.Z[0]
+#                 response.y = self.Z[1]
+#                 response.z = self.Z[2]
+#                 response.qw = self.Z[3]
+#                 response.qx = self.Z[4]
+#                 response.qy = self.Z[5]
+#                 response.qz = self.Z[6]        
+#         return response    
+
+#     # Send requested base pose in robot frame
+#     def get_base_callback(self, request, response):
+#         pose_name = request.name
+#         self.get_logger().debug('Received %s request' %(pose_name))
+#         if pose_name == 'base':
+#             if (self.X.size == 0):
+#                 response.valid = False
+#             else:
+#                 response.valid = True
+#                 response.x = self.X[0]
+#                 response.y = self.X[1]
+#                 response.z = self.X[2]
+#                 response.qw = self.X[3]
+#                 response.qx = self.X[4]
+#                 response.qy = self.X[5]
+#                 response.qz = self.X[6]        
+#         return response  
+
 #### Listening callbacks ###################################################
-
-    # Get initial robot pose
-    def initial_point_callback(self, msg_robot):
-        if (self.initial_point.size == 0): # Do it only once
-            robot = msg_robot.point
-            # Set initial point
-            self.initial_point = np.array([robot.x, robot.y, robot.z])
-            q_tf1= np.quaternion(np.cos(np.deg2rad(45)), np.sin(np.deg2rad(45)), 0, 0)
-            q_tf2= np.quaternion(np.cos(np.deg2rad(45)), 0, 0, np.sin(np.deg2rad(45)))
-            q_tf = q_tf1*q_tf2   
-            # Set needleToRobot transform         
-            needle_base= np.array([self.initial_point[0], self.initial_point[1]-self.needle_length, self.initial_point[2]])
-            self.needleToRobot = np.concatenate((needle_base, np.array([q_tf.w, q_tf.x, q_tf.y, q_tf.z]))) # Registration now comes from entry point
-
-    # Get skin_entry point
-    def skin_entry_callback(self, msg):
-        if (self.skin_entry_needle.size == 0) and (self.needleToRobot.size!=0): # Do it only once
-            skin_entry = msg.point
-            # Store skin_entry point
-            skin_entry = np.array([skin_entry.x, skin_entry.y, skin_entry.z, 1,0,0,0])
-            self.skin_entry_needle = pose_inv_transform(skin_entry, self.needleToRobot)[0:3]   # skin_entry in needle frame
-            # Publish immediately
-            msg = Point(x=self.skin_entry_needle[0], y=self.skin_entry_needle[1], z=self.skin_entry_needle[2])
-            self.publisher_skin_entry_needle.publish(msg)
 
     # Get current robot pose
     def robot_callback(self, msg_robot):
@@ -158,23 +220,23 @@ class SmartNeedleInterface(Node):
         self.stage = np.array([robot.x, robot.y, robot.z])
         # Store current needle base pose (in robot and needle frames)
         if (self.needleToRobot.size != 0):
-            needle_q = self.needleToRobot[3:7]
-            self.X = np.array([self.stage[0], self.stage[1], self.stage[2], needle_q[0], needle_q[1], needle_q[2], needle_q[3]]) #base in robot frame       
-            self.needle_pose = pose_inv_transform(self.X, self.needleToRobot)   # needle base in needle frame
+            needle_q = self.needleToRobot[3:7]                                      
+            needle_base = np.array([self.stage[0], self.stage[1], self.stage[2], needle_q[0], needle_q[1], needle_q[2], needle_q[3]]) # base in robot frame       
+            self.needle_pose = pose_inv_transform(needle_base, self.needleToRobot)  # needle base in needle frame
 
     # Get current sensor measurements
     def shape_callback(self, msg_sensor):
-        self.get_logger().info('Shape published')
         # From shape, get tip (last point)
         self.shapecount += 1
         shape = msg_sensor.poses      
-        N = len(shape)
-        tip = np.array([shape[N-1].position.x, shape[N-1].position.y, shape[N-1].position.z])  #get tip
+        N = len(shape) 
+        # Tip is last point in shape
+        tip = np.array([shape[N-1].position.x, shape[N-1].position.y, shape[N-1].position.z]) 
         q = np.array([shape[N-1].orientation.w, shape[N-1].orientation.x, shape[N-1].orientation.y, shape[N-1].orientation.z])
-        self.sensorZ = np.array([tip[0], tip[1], tip[2], q[0], q[1], q[2], q[3]])
+        self.sensorZ = np.array([tip[0], tip[1], tip[2], q[0], q[1], q[2], q[3]]) # needle tip in needle frame
         # Transform from needle to robot frame
         if (self.needleToRobot.size != 0): 
-            self.Z = pose_transform(self.sensorZ, self.needleToRobot)
+            self.Z = pose_transform(self.sensorZ, self.needleToRobot)             # needle tip in robot frame
             # Transform from needle to zFrame (to 3DSlicer)
             if self.push_to_bridge is True:
                 # Build shape message to push to 3D Slicer
@@ -205,6 +267,17 @@ class SmartNeedleInterface(Node):
 
 #### Publishing callbacks ###################################################
 
+    # Publishes needle tip transformed to robot frame
+    def timer_tip_callback (self):
+        # Publish last needle pose in robot frame
+        if (self.Z.size != 0):
+            msg = PoseStamped()
+            msg.header.stamp = self.get_clock().now().to_msg()
+            msg.header.frame_id = 'stage'
+            msg.pose.position = Point(x=self.Z[0], y=self.Z[1], z=self.Z[2])
+            msg.pose.orientation = Quaternion(w=self.Z[3], x=self.Z[4], y=self.Z[5], z=self.Z[6])
+            self.publisher_tip.publish(msg)
+
     # Publishes needle shape (robot frame) to IGTLink bridge
     def timer_shape_callback(self):
         if (self.shapedata is not None) and (self.shapeheader is not None):
@@ -217,28 +290,6 @@ class SmartNeedleInterface(Node):
             # Push shape to IGTLBridge
             self.publisher_shapeheader.publish(string_msg)
             self.publisher_shape.publish(pointarray_msg)
-
-    # Publishes needle base transformed to robot frame
-    def timer_base_callback (self):
-        # Publish last needle pose in robot frame
-        if (self.X.size != 0):
-            msg = PoseStamped()
-            msg.header.stamp = self.get_clock().now().to_msg()
-            msg.header.frame_id = 'stage'
-            msg.pose.position = Point(x=self.X[0], y=self.X[1], z=self.X[2])
-            msg.pose.orientation = Quaternion(w=self.X[3], x=self.X[4], y=self.X[5], z=self.X[6])
-            self.publisher_base.publish(msg)
-
-    # Publishes needle tip transformed to robot frame
-    def timer_tip_callback (self):
-        # Publish last needle pose in robot frame
-        if (self.Z.size != 0):
-            msg = PoseStamped()
-            msg.header.stamp = self.get_clock().now().to_msg()
-            msg.header.frame_id = 'stage'
-            msg.pose.position = Point(x=self.Z[0], y=self.Z[1], z=self.Z[2])
-            msg.pose.orientation = Quaternion(w=self.Z[3], x=self.Z[4], y=self.Z[5], z=self.Z[6])
-            self.publisher_tip.publish(msg)
 
     # Publishes skin_entry in needle coordinate frame
     # TODO: When possible, replace Point by PointStamped
@@ -318,6 +369,7 @@ def main(args=None):
     rclpy.init(args=args)
 
     smart_needle_interface = SmartNeedleInterface()
+    smart_needle_interface.get_logger().info('Received planning points')
     rclpy.spin(smart_needle_interface)
 
     # Destroy the node explicitly

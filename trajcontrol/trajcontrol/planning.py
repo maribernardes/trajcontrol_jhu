@@ -12,9 +12,11 @@ from std_msgs.msg import Int8
 from geometry_msgs.msg import PoseArray, PoseStamped, PointStamped, Quaternion, Point
 from ros2_igtl_bridge.msg import PointArray
 from smart_control_interfaces.action import MoveStage
+from trajcontrol_interfaces.srv import GetPoint
 
 from numpy import loadtxt
 from ament_index_python.packages import get_package_share_directory
+
 #########################################################################
 #
 # Planning Node
@@ -31,12 +33,11 @@ from ament_index_python.packages import get_package_share_directory
 # Subscribes:   
 # 'IGTL_POINT_IN'           (ros2_igtl_bridge.msg.PointArray) -  zFrame     name:TARGET 
 # '/keyboard/key'           (std_msgs.msg.Int8)
-# '/stage/state/guide_pose' (geometry_msgs.msg.PoseStamped)  - robot frame
+# '/stage/state/guide_pose' (geometry_msgs.msg.PointStamped)  - robot frame
 #
-# Publishes:    
-# '/subject/state/target'     (geometry_msgs.msg.PointStamped) - robot frame
-# '/subject/state/skin_entry' (geometry_msgs.msg.PointStamped) - robot frame
-# '/stage/initial_point'      (geometry_msgs.msg.PointStamped) - robot frame
+# Service server:    
+# '/get_planning_point'             (trajcontrol_interfaces.srv.GetPoint) - robot frame
+#  name: "initial_point", "skin_entry" OR "target"
 #
 # Action client:
 # '/movestage'              (smart_control_interfaces.action.MoveStage) - robot frame
@@ -50,55 +51,49 @@ class Planning(Node):
 
         #Declare node parameters
         self.declare_parameter('use_slicer', False)         # Get target and skin entry from 3DSlicer
-        self.declare_parameter('air_gap', 10)               # Air gap between needle guide and tissue - Set target and skin entry from homing point
+        self.declare_parameter('air_gap', 10.0)             # Air gap between needle guide and tissue - Set target and skin entry from homing point
         self.declare_parameter('insertion_length', 100.0)   # Desired insertion length                - Set target and skin entry from homing point
+
+#### Stored variables ###################################################
+
+        self.use_slicer = self.get_parameter('use_slicer').get_parameter_value().bool_value
+        self.air_gap = self.get_parameter('air_gap').get_parameter_value().double_value
+        self.insertion_length = self.get_parameter('insertion_length').get_parameter_value().double_value
+
+        self.zFrameToRobot = np.empty(shape=[0,7])  # ZFrame to robot frame transform
+
+        self.target = np.empty(shape=[0,3])         # User-defined tip position at desired target
+        self.skin_entry = np.empty(shape=[0,3])     # User-defined tip position at skin entry
+        
+        self.initial_point = np.empty(shape=[0,3])  # Stage position at begining of experiment
+        self.stage = np.empty(shape=[0,3])          # Stage positions: horizontal / depth / vertical 
+
+        self.listen_keyboard = False                # Flag for waiting keyboard input (set robot initial position)
 
 #### Subscribed topics ###################################################
 
         #Topics from 3D Slicer interface (OpenIGTLink Bridge)
-        self.subscription_bridge_point = self.create_subscription(PointArray, 'IGTL_POINT_IN', self.bridge_point_callback, 10)
-        self.subscription_bridge_point # prevent unused variable warning
+        if self.use_slicer is True:
+            self.subscription_bridge_point = self.create_subscription(PointArray, 'IGTL_POINT_IN', self.bridge_point_callback, 10)
+            self.subscription_bridge_point # prevent unused variable warning
 
         #Topic from keypress node
         self.subscription_keyboard = self.create_subscription(Int8, '/keyboard/key', self.keyboard_callback, 10)
         self.subscription_keyboard # prevent unused variable warning
 
         #Topics from robot node
-        self.subscription_robot = self.create_subscription(PoseStamped, '/stage/state/guide_pose', self.robot_callback, 10)
+        self.subscription_robot = self.create_subscription(PointStamped, '/stage/state/guide_pose', self.robot_callback, 10)
         self.subscription_robot # prevent unused variable warning
-        
-#### Published topics ###################################################
-
-        # Skin entry and target (robot frame)
-        timer_period_planning = 1.0  # seconds
-        self.timer_planning = self.create_timer(timer_period_planning, self.timer_planning_callback)        
-        self.publisher_skin_entry = self.create_publisher(PointStamped, '/subject/state/skin_entry', 10)
-        self.publisher_target = self.create_publisher(PointStamped, '/subject/state/target', 10)
-
-        # Experiment initial robot position (robot frame)
-        timer_period_initialize = 3.0  # seconds
-        self.timer_initialize = self.create_timer(timer_period_initialize, self.timer_initialize_callback)        
-        self.publisher_initial_point = self.create_publisher(PointStamped, '/stage/initial_point', 10)
 
 #### Action client ###################################################
 
-        #Action client 
+        # Action client to move_stage
         self.action_client = ActionClient(self, MoveStage, '/move_stage')
-                        
-#### Stored variables ###################################################
-        # Frame transformations
-        self.zFrameToRobot = np.empty(shape=[0,7])  # ZFrame to robot frame transform
 
-        self.target = np.empty(shape=[0,3])         # User-defined tip position at desired target
-        self.skin_entry = np.empty(shape=[0,3])     # User-defined tip position at skin entry
-        
-        self.use_slicer = self.get_parameter('use_slicer').get_parameter_value().bool_value
-        self.air_gap = self.get_parameter('air_gap').get_parameter_value().double_value
-        self.insertion_length = self.get_parameter('insertion_length').get_parameter_value().double_value
+#### Service server ##############################################
 
-        self.initial_point = np.empty(shape=[0,3])  # Stage position at begining of experiment
-        self.stage = np.empty(shape=[0,3])          # Stage positions: horizontal / depth / vertical 
-        self.listen_keyboard = False                # Flag for waiting keyboard input (set robot initial position)
+        # Service server to return planning points
+        self.service_server = None  # Activate only after robot is initialized (see function self.get_result_callback)
 
 #### Interface initialization ###################################################
         # Print numpy floats with only 3 decimal places
@@ -117,8 +112,8 @@ class Planning(Node):
 
     # Get current robot pose
     def robot_callback(self, msg_robot):
-        robot = msg_robot.pose
-        self.stage = np.array([robot.position.x, robot.position.y, robot.position.z])
+        robot = msg_robot.point
+        self.stage = np.array([robot.x, robot.y, robot.z])
         
     # Get current skin entry and target points 
     def bridge_point_callback(self, msg_point):
@@ -133,63 +128,57 @@ class Planning(Node):
                     skin_entry_zFrame = np.array([msg_point.pointdata[0].x, msg_point.pointdata[0].y, msg_point.pointdata[0].z, q.w,q.x,q.y,q.z])
                     skin_entry_robot = pose_transform(skin_entry_zFrame, self.zFrameToRobot)
                     self.skin_entry = skin_entry_robot[0:3]
+                    self.get_logger().info('Skin entry (stage) = %s' %(skin_entry_robot))
                 # Target can be changed in 3DSlicer after initialization
                 target_zFrame = np.array([msg_point.pointdata[1].x, msg_point.pointdata[1].y, msg_point.pointdata[1].z, q.w,q.x,q.y,q.z])
                 target_robot = pose_transform(target_zFrame, self.zFrameToRobot)
                 self.target = target_robot[0:3]
-                self.get_logger().info('Skin entry (stage) = %s' %(skin_entry_robot))
                 self.get_logger().info('Target (stage) = %s' %(target_robot))
 
     # A keyboard hotkey was pressed 
     def keyboard_callback(self, msg):
         if (self.listen_keyboard is True) and (self.initial_point.size == 0) and (msg.data == 32):  # SPACE: initialize stage initial point only ONCE
+            self.get_logger().info('Initializing robot ...')
             if (self.use_slicer is False): # Define entry point with current position
-                self.skin_entry = np.array([self.stage[0], self.stage[1], self.stage[2]]) 
+                self.skin_entry = np.array([self.stage[0], self.stage[1]+self.air_gap, self.stage[2]]) 
                 self.target = np.array([self.skin_entry[0], self.skin_entry[1]+self.insertion_length, self.skin_entry[2]]) 
             self.send_cmd(self.skin_entry[0], self.skin_entry[1], self.skin_entry[2])
 
-#### Publishing callbacks ###################################################
+#### Service server functions ###################################################
 
-    # Publishes skin entry and target points
-    def timer_planning_callback(self):
-        # TODO: Currently, messages are Point type. Would prefer PointStamped (check if Dimitri uses it)
-        if self.use_slicer is True:
-            # Publishes only after 3DSlicer pushed values
-            if (self.skin_entry.size != 0):
-                msg = PointStamped()
-                msg.header.stamp = self.get_clock().now().to_msg()
-                msg.header.frame_id = 'stage'
-                msg.point = Point(x=self.skin_entry[0], y=self.skin_entry[1], z=self.skin_entry[2])
-                self.publisher_skin_entry.publish(msg)
-            if (self.target.size != 0):
-                msg = PointStamped()
-                msg.header.stamp = self.get_clock().now().to_msg()
-                msg.header.frame_id = 'stage'
-                msg.point = Point(x=self.target[0], y=self.target[1], z=self.target[2])
-                self.publisher_target.publish(msg)
+    # Send requested point
+    def get_point_callback(self, request, response):
+        point_name = request.name
+        self.get_logger().debug('Received %s request' %(point_name))
+        if point_name == 'initial_point':
+            if (self.initial_point.size == 0):
+                response.valid = False
+            else:
+                response.valid = True
+                response.x = self.initial_point[0]
+                response.y = self.initial_point[1]
+                response.z = self.initial_point[2]
+        elif point_name == 'skin_entry':
+            if (self.skin_entry.size == 0):
+                response.valid = False
+            else:
+                response.valid = True
+                response.x = self.skin_entry[0]
+                response.y = self.skin_entry[1]
+                response.z = self.skin_entry[2]
+        elif point_name == 'target':
+            if (self.target.size == 0):
+                response.valid = False
+            else:
+                response.valid = True
+                response.x = self.target[0]
+                response.y = self.target[1]
+                response.z = self.target[2]   
         else:
-            # Publishes only after experiment started (stored inital point is available)
-            if (self.initial_point.size != 0):
-                msg = PointStamped()
-                msg.header.stamp = self.get_clock().now().to_msg()
-                msg.header.frame_id = 'stage'
-                msg.point = Point(x=self.initial_point[0], y=self.initial_point[1]+self.air_gap, z=self.initial_point[2])
-                self.publisher_skin_entry.publish(msg)
-                msg.header.stamp = self.get_clock().now().to_msg()
-                msg.point = Point(x=self.initial_point[0], y=self.initial_point[1]+self.air_gap+self.insertion_length, z=self.initial_point[2])
-                
-    # Publishes initial point
-    def timer_initialize_callback(self):
-        # Publishes only after experiment started (stored initial point is available)
-        if (self.initial_point.size != 0):
-            msg = PointStamped()
-            msg.header.stamp = self.get_clock().now().to_msg()
-            msg.header.frame_id = 'stage'
-            # Publish robot initial point (robot frame)
-            msg.point = Point(x=self.initial_point[0], y=self.initial_point[1], z=self.initial_point[2])
-            self.publisher_initial_point.publish(msg)
+            response.valid = False        
+        return response    
 
-#### Action server functions ###################################################
+#### Action client functions ###################################################
 
     # Send MoveStage action to Stage
     def send_cmd(self, x, y, z):
@@ -227,12 +216,9 @@ class Planning(Node):
             self.initial_point = np.copy(self.stage)
             self.get_logger().debug('Initial robot position: %s' %(self.initial_point)) 
             self.listen_keyboard == False
-            # Publishes immediately
-            msg = PointStamped()
-            msg.header.stamp = self.get_clock().now().to_msg()
-            msg.header.frame_id = 'stage'
-            msg.point = Point(x=self.initial_point[0], y=self.initial_point[1], z=self.initial_point[2])
-            self.publisher_initial_point.publish(msg)
+            # Activate service server
+            self.service_server = self.create_service(GetPoint, '/get_planning_point', self.get_point_callback)
+            self.get_logger().info('Service /get_planning_point is now available')
         elif result.error_code == 1:
             self.get_logger().info('Goal failed: TIMETOUT')
         self.robot_idle = True       # Set robot status to IDLE
@@ -292,9 +278,18 @@ def main(args=None):
     if (planning.use_slicer is True):
         planning.get_logger().info('Waiting planning points from 3DSlicer')
     else:
-        planning.get_logger().info('**** Position robot at initial point and hit SPACE ****')
-        planning.get_logger().info('REMEMBER: Use another terminal to run keypress node')
-        planning.listen_keyboard = True
+        planning.get_logger().info('Waiting robot to connect')
+        # Wait for robot
+        while rclpy.ok():
+            rclpy.spin_once(planning)
+            if(planning.stage.size == 0): # Keep loop while skin_entry not set
+                pass
+            else:  
+                planning.get_logger().info('Planned robot initial point = %s' %(planning.initial_point))
+                planning.get_logger().info('**** Hit SPACE to initialize experiment ****')
+                planning.get_logger().info('REMEMBER: Use another terminal to run keypress node')
+                planning.listen_keyboard = True
+                break
     
     # Wait for skin_entry to be defined
     while rclpy.ok():
@@ -303,7 +298,7 @@ def main(args=None):
             pass
         else:
             if (planning.use_slicer is True):
-                planning.get_logger().info('Planned robot initial point = %s' %(planning.skin_entry))
+                planning.get_logger().info('Planned robot initial point = %s' %(planning.initial_point))
                 planning.get_logger().info('**** To position robot and initialize experiment, hit SPACE ****')
                 planning.get_logger().info('REMEMBER: Use another terminal to run keypress node')
                 planning.listen_keyboard = True

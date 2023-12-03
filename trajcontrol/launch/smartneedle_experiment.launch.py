@@ -1,37 +1,20 @@
 import os
-from ament_index_python.packages import get_package_share_directory
 
-from launch import LaunchDescription, conditions
+from launch import LaunchDescription
+from launch.actions import  DeclareLaunchArgument
 from launch.substitutions.launch_configuration import LaunchConfiguration
-from launch.actions import IncludeLaunchDescription, DeclareLaunchArgument
-from launch.substitutions import PythonExpression
-from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch_ros.actions import Node
 
-# Launch system in manual control mode
-# Remember to run keypress node (trajcontrol package) in another terminal
-# If use_slicer: launch bridge server in another terminal 
+# Launch trajcontrol environment for experiment (with 3D Slicer)
 
 def generate_launch_description():
 
     ld = LaunchDescription()
 
-    arg_use_slicer = DeclareLaunchArgument(
-        "use_slicer",
-        default_value = "True",
-        description = "Use 3DSlicer (True) or stand-alone mode (False)"
-    )
-
-    arg_needle_length = DeclareLaunchArgument(
-        "needle_length",
-        default_value = "20.0",
-        description = "Set the needle total lenght [mm]"
-    )
-
     arg_insertion_length = DeclareLaunchArgument(
         "insertion_length",
         default_value = "10.0",
-        description = "Set total insertion lenght inside tissue [mm]. Valid only if use_slicer is True"
+        description = "Set total insertion lenght inside tissue [mm]. Used only if use_slicer is True"
     )
 
     arg_insertion_step = DeclareLaunchArgument(
@@ -45,23 +28,23 @@ def generate_launch_description():
         package = "trajcontrol",
         executable = "smart_needle_interface",
         parameters = [
-            {"use_slicer": LaunchConfiguration('use_slicer')},
-            {"needle_length": LaunchConfiguration('needle_length')}
+            {"use_slicer": True},
         ]
     )
 
     # Use planning interface
+    # air_gap is not used because use_slicer is True
     planning= Node(
         package = "trajcontrol",
         executable = "planning",
         parameters = [
-            {"use_slicer": LaunchConfiguration('use_slicer')},
-            {"air_gap": 1.0},
+            {"use_slicer": True},
             {"insertion_length": LaunchConfiguration('insertion_length')}
         ]
     )
 
     # Use manual controller
+    # to be replaced by controller_mpc
     manual_control = Node(
         package = "trajcontrol",
         executable = "controller_manual_smart",
@@ -80,8 +63,6 @@ def generate_launch_description():
     # )
 
     # Include launch arguments
-    ld.add_action(arg_use_slicer)
-    ld.add_action(arg_needle_length)
     ld.add_action(arg_insertion_length)
     ld.add_action(arg_insertion_step)
     
