@@ -30,7 +30,6 @@ from functools import partial
 # Service client:    
 # '/planning/get_skin_entry'     (smart_control_interfaces.srv.GetPoint) - robot frame
 # '/planning/get_target'         (smart_control_interfaces.srv.GetPoint) - robot frame
-# '/stage/get_position'          (smart_control_interfaces.srv.GetPoint) - robot frame
 #
 # Action client:
 # 'stage/move'              (smart_control_interfaces.action.MoveStage) - robot frame
