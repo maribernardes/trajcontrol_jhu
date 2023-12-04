@@ -47,6 +47,8 @@ def generate_launch_description():
         default_value = '10.0.0.55',
         description = "Interrogator IP" 
         )
+    
+    num_signals_to_collect = 50
 
     # Needle shape publisher
     ld_needlepub = IncludeLaunchDescription( # needle shape publisher
@@ -54,6 +56,7 @@ def generate_launch_description():
         os.path.join(pkg_needle_shape_publisher, 'needle.launch.py')),
         launch_arguments = {
             'needleParamFile': LaunchConfiguration('needleParamFile'),
+            'numSignals'     : TextSubstitution(text=str(num_signals_to_collect)),
         }.items()
     )
 
@@ -70,12 +73,13 @@ def generate_launch_description():
     )
 
     ld_hyperionstream = IncludeLaunchDescription( # Real hardware (sim_level_needle = 2)
-        PythonLaunchDescriptionSource(os.path.join(pkg_hyperion_interrogator, 'hyperion_streamer.launch.py')),
+        PythonLaunchDescriptionSource(os.path.join(pkg_hyperion_interrogator, 'hyperion_talker.launch.py')),
         condition=conditions.IfCondition(
             PythonExpression([LaunchConfiguration('sim_level'), " == 2"])
         ),
         launch_arguments = {
-            'ip': LaunchConfiguration('interrogatorIP')
+            'ip'        : LaunchConfiguration('interrogatorIP'),
+            'numSamples': TextSubstitution(text=str(num_signals_to_collect)),
         }.items()
     )
 

@@ -9,7 +9,7 @@ from action_msgs.msg import GoalStatus
 from geometry_msgs.msg import PoseStamped, PointStamped
 from smart_control_interfaces.action import MoveStage
 from smart_control_interfaces.srv import ControllerCommand
-from trajcontrol_interfaces.srv import GetPoint, GetPose
+from smart_control_interfaces.srv import GetPoint, GetPose
 
 from functools import partial
 
@@ -55,7 +55,7 @@ class ControllerManualSmart(Node):
 
         if self.wait_initialization is True:  # Stage status
             self.robot_idle = False                      
-            self.planning_client = self.create_client(GetPoint, '/get_planning_point')
+            self.planning_client = self.create_client(GetPoint, '/planning/get_initial_point')
             self.get_logger().info('Waiting robot initialization...')
         else:
             self.robot_idle = True
@@ -73,12 +73,12 @@ class ControllerManualSmart(Node):
 #### Action/service client ###################################################
 
         # Action client 
-        self.action_client = ActionClient(self, MoveStage, '/move_stage')
+        self.action_client = ActionClient(self, MoveStage, '/stage/move')
         while not self.action_client.wait_for_server(timeout_sec=5.0):
             self.get_logger().warn('SmartTemplate action server not available, waiting again...')
 
         # Service client
-        self.service_client = self.create_client(ControllerCommand, '/command')
+        self.service_client = self.create_client(ControllerCommand, '/stage/command')
         while not self.service_client.wait_for_service(timeout_sec=5.0):
             self.get_logger().warn('SmartTemplate service server not available, waiting again...')
 

@@ -52,11 +52,13 @@ class SmartNeedleInterface(Node):
 
         #Declare node parameters
         self.declare_parameter('use_slicer', True) # Push shape to OpenIGTLink bridge
+        self.declare_parameter('needle_length', 200.0) # Needle length
 
     #### Stored variables ###################################################
 
         # Node parameters
         self.push_to_bridge = self.get_parameter('use_slicer').get_parameter_value().bool_value
+        self.needle_length = self.get_parameter('needle_length').get_parameter_value().double_value
 
         self.zFrameToRobot = np.empty(shape=[0,7])      # zFrame to robot frame transform (from robot package)
         self.needleToRobot = np.empty(shape=[0,7])      # Needle to robot frame transform (initialized from initial_point)
@@ -155,7 +157,7 @@ class SmartNeedleInterface(Node):
         q_tf1= np.quaternion(np.cos(np.deg2rad(-45)), np.sin(np.deg2rad(-45)), 0, 0)
         q_tf2= np.quaternion(np.cos(np.deg2rad(90)), 0, 0, np.sin(np.deg2rad(90)))
         q_tf = q_tf1*q_tf2  
-        needle_base= np.array([self.initial_point[0], self.initial_point[1], self.initial_point[2]])  # stage initial_point
+        needle_base= np.array([self.initial_point[0], self.initial_point[1]-self.needle_length, self.initial_point[2]])  # needle base at experiment init
         self.needleToRobot = np.concatenate((needle_base, np.array([q_tf.w, q_tf.x, q_tf.y, q_tf.z])))
 
         # Store skin_entry point in needle frame
