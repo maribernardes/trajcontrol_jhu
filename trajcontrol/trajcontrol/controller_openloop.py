@@ -10,6 +10,9 @@ from action_msgs.msg import GoalStatus
 from smart_control_interfaces.action import MoveStage
 from smart_control_interfaces.srv import GetPoint
 
+from rclpy.callback_groups import ReentrantCallbackGroup, MutuallyExclusiveCallbackGroup
+from rclpy.executors import MultiThreadedExecutor
+
 from functools import partial
 
 #########################################################################
@@ -47,40 +50,27 @@ class ControllerOpenLoop(Node):
         # Stored values
         self.skin_entry = np.empty(shape=[3,0])    # Stage position after experiment initialization
         self.target = np.empty(shape=[3,0])        # Planned target point
-        self.stage = np.empty(shape=[3,0])         # Current stage position
-
-        self.robot_idle = False         # Flag for move robot
-        self.step = 0                   # Current insertion step         
-
-    #### Subscribed topics ###################################################
-
-        #Topic from keypress node
-        self.subscription_keyboard = self.create_subscription(Int8, '/keyboard/key', self.keyboard_callback, 10)
-        self.subscription_keyboard # prevent unused variable warning
+        
+        self.robot_idle = False       # Flag for move robot
+        self.step = 0                 # Current insertion step         
 
     #### Action/service clients ###################################################
  
         # OBS: Node will not spin until servers are available
         # /stage/move Action client
-        self.move_action_client = ActionClient(self, MoveStage, '/stage/move')
+        self.move_action_client = ActionClient(self, MoveStage, '/stage/move', callback_group=MutuallyExclusiveCallbackGroup())
         if not self.move_action_client.server_is_ready():
             self.get_logger().warn('/stage/move action not available, waiting...')
         while not self.move_action_client.wait_for_server(timeout_sec=5.0):
             pass
-        # /stage/get_position Service client
-        self.stage_position_service_client = self.create_client(GetPoint, '/stage/get_position')
-        if not self.stage_position_service_client.service_is_ready():
-            self.get_logger().warn('/stage/get_position service not available, waiting...')
-        while not self.stage_position_service_client.wait_for_service(timeout_sec=5.0):
-            pass   
         # /planning/get_target Service client
-        self.target_service_client = self.create_client(GetPoint, '/planning/get_target')
+        self.target_service_client = self.create_client(GetPoint, '/planning/get_target', callback_group=MutuallyExclusiveCallbackGroup())
         if not self.target_service_client.service_is_ready():
             self.get_logger().warn('/planning/get_target service not available, waiting...')
         while not self.target_service_client.wait_for_service(timeout_sec=5.0):
             pass     
         # /planning/get_skin_entry Service client
-        self.skin_entry_service_client = self.create_client(GetPoint, '/planning/get_skin_entry')
+        self.skin_entry_service_client = self.create_client(GetPoint, '/planning/get_skin_entry', callback_group=MutuallyExclusiveCallbackGroup())
         if not self.skin_entry_service_client.service_is_ready():
             self.get_logger().warn('/planning/get_skin_entry service not available, waiting...')
         while not self.skin_entry_service_client.wait_for_service(timeout_sec=5.0):
@@ -94,107 +84,90 @@ class ControllerOpenLoop(Node):
 
         self.insertion_step = self.get_parameter('insertion_step').get_parameter_value().double_value
 
-        # Initialize target and initial_point
-        self.skin_entry = self.get_skin_entry()
-        self.target = self.get_target()
-        self.stage = self.get_stage_position()
-        self.get_logger().info('Loaded target')
-
-        # Make robot available for motion request
+        # Initialize skin_entry
+        self.get_logger().info('Initializing skin_entry and target')
+        self.skin_entry = self.get_skin_entry()     # get_skin is a blocking service request
+        self.target = self.get_target()     # get_skin is a blocking service request
         self.robot_idle = True
+
+    #### Subscribed topics ###################################################
+
+        #Topic from keypress node
+        self.subscription_keyboard = self.create_subscription(Int8, '/keyboard/key', self.keyboard_callback, 10)
+        self.subscription_keyboard # prevent unused variable warning
 
 #### Internal functions ###################################################
 
-    # Get skin_entry
+    def move_step(self):
+        # Calculate step goal
+        max_depth = self.target[1]
+        step_depth = self.skin_entry[1] + self.insertion_step*self.step
+        x = self.skin_entry[0]
+        y = min(max_depth, step_depth)
+        z = self.skin_entry[2]
+        # Send to stage
+        self.move_stage(x, y, z) 
+
+#### Listening callbacks ###################################################
+
+    # A keyboard hotkey was pressed 
+    def keyboard_callback(self, msg):
+        if (msg.data == 32):
+            if (self.robot_idle is True):
+                self.next_step()
+            else:
+                self.get_logger().info('Motion not available')
+
+#### Service client functions ###################################################
+
+    # Update target (non blocking service request)
+    def next_step(self):
+        # Get current target
+        request = GetPoint.Request()
+        future = self.target_service_client.call_async(request)
+        # When target request done, do callback
+        future.add_done_callback(partial(self.update_target_callback))
+        return future.result()
+
+    # Get target (blocking service request)
     def get_target(self):
-        target = self.request_target()
+        request = GetPoint.Request()
+        future = self.target_service_client.call_async(request)
+        rclpy.spin_until_future_complete(self, future)
+        target = future.result()
         if target.valid is True:
             return np.array([target.x, target.y, target.z])
         else:
             self.get_logger().error('Invalid target')
             return None
 
-    # Get skin_entry
+    # Get skin_entry (blocking service request)
     def get_skin_entry(self):
-        skin_entry = self.request_skin_entry()
+        request = GetPoint.Request()
+        future = self.skin_entry_service_client.call_async(request)
+        rclpy.spin_until_future_complete(self, future)
+        skin_entry = future.result()
         if skin_entry.valid is True:
             return np.array([skin_entry.x, skin_entry.y, skin_entry.z])
         else:
             self.get_logger().error('Invalid skin_entry')
             return None
 
-    # Get stage
-    def get_stage_position(self):
-        stage = self.request_stage_position()
-        if stage.valid is True:
-            return np.array([stage.x, stage.y, stage.z])
-        else:
-            self.get_logger().error('Invalid stage position')
-            return None
-
-#### Listening callbacks ###################################################
-
-    # A keyboard hotkey was pressed 
-    def keyboard_callback(self, msg):
-        # Only takes new control input after converged to previous
-        if (self.robot_idle is True) and (msg.data == 32):
-            self.step += 1
-            self.get_logger().info('STEP #%i' %self.step)
-            # Calculate step goal
-            max_depth = self.target[1]
-            step_depth = self.skin_entry[1] + self.insertion_step*self.step
-            x = self.skin_entry[0]
-            y = min(max_depth, step_depth)
-            z = self.skin_entry[2]
-            # Send to stage
-            self.move_stage(x, y, z) 
-            
-        elif (self.robot_idle is False):
-            self.get_logger().info('Motion not available')
-
-#### Service client functions ###################################################
-
-    # Request target
-    def request_target(self):
-        request = GetPoint.Request()
-        future = self.target_service_client.call_async(request)
-        rclpy.spin_until_future_complete(self, future)
-        return future.result()
-
-    # Update target
-    def update_target(self):
-        request = GetPoint.Request()
-        future = self.target_service_client.call_async(request)
-        # rclpy.spin_until_future_complete(self, future)
-        future.add_done_callback(partial(self.get_target_callback))
-        return future.result()
-
-    # Request skin_entry
-    def request_skin_entry(self):
-        request = GetPoint.Request()
-        future = self.skin_entry_service_client.call_async(request)
-        rclpy.spin_until_future_complete(self, future)
-        return future.result()
-
-    # Get Command service response message (Response)
-    def get_target_callback(self, future):
+    # Update target service response message (Response)
+    def update_target_callback(self, future):
         try:
             target = future.result()
-            target = self.request_target()
             if target.valid is True:
                 self.target = np.array([target.x, target.y, target.z])
+                if (self.robot_idle is True):
+                    self.step += 1
+                    self.get_logger().info('STEP #%i' %self.step)
+                    self.get_logger().info('Target: %s' %self.target)
+                    self.move_step()
             else:
                 self.get_logger().error('Invalid target')
-                return None
         except Exception as e:
             self.get_logger().error('Service call failed: %r' %(e,))
-
-    # Request stage
-    def request_stage_position(self):
-        request = GetPoint.Request()
-        future = self.stage_position_service_client.call_async(request)
-        rclpy.spin_until_future_complete(self, future)
-        return future.result()
 
 #### Action client functions ###################################################
 
@@ -207,7 +180,7 @@ class ControllerOpenLoop(Node):
         goal_msg.y = float(y)
         goal_msg.z = float(z)
         goal_msg.eps = 0.5 # in mm
-        self.get_logger().info('Send goal request... Control u: x=%.4f, y=%.4f, z=%.4f' % (x, y, z))
+        self.get_logger().info('Move request: %.4f, %.4f, %.4f' % (x, y, z))
         # Wait for action server
         self.move_action_client.wait_for_server()        
         self.send_goal_future = self.move_action_client.send_goal_async(goal_msg)
@@ -217,8 +190,7 @@ class ControllerOpenLoop(Node):
     def move_response_callback(self, future):
         goal_handle = future.result()
         if not goal_handle.accepted:
-            self.get_logger().info('Goal rejected :(')
-            return
+            self.get_logger().info('Move rejected :(')
         self._get_result_future = goal_handle.get_result_async()
         self._get_result_future.add_done_callback(self.get_move_result_callback)
 
@@ -229,8 +201,9 @@ class ControllerOpenLoop(Node):
         if status == GoalStatus.STATUS_SUCCEEDED:
             self.get_logger().info('Goal reached: %.4f, %.4f, %.4f' %(result.x, result.y, result.z))
             self.stage = np.array([result.x, result.y, result.z])
+            self.get_logger().warn('Ready for next step. Hit SPACE')
         elif result.error_code == 1:
-            self.get_logger().info('Goal failed: TIMETOUT')
+            self.get_logger().info('Move failed: TIMETOUT')
         self.robot_idle = True       # Set robot status to IDLE
 
 #########################################################################
@@ -239,26 +212,21 @@ def main(args=None):
     rclpy.init(args=args)
     controller_openloop = ControllerOpenLoop()
 
-    # # Wait for experiment initialization
-    # while rclpy.ok():
-    #     rclpy.spin_once(controller_openloop)
-    #     if not controller_openloop.planning_client.service_is_ready():
-    #         pass
-    #     else:
-    #         break
+    executor = MultiThreadedExecutor()
 
-    controller_openloop.get_logger().info('Target: %s' %controller_openloop.target)
-    controller_openloop.get_logger().info('Stage: =%s' %controller_openloop.skin_entry)
-    controller_openloop.get_logger().info('Skin Entry: %s' %controller_openloop.stage)
     controller_openloop.get_logger().warn('***** Ready to INSERT - Open loop *****')
     controller_openloop.get_logger().warn('Use SPACE to signal each insertion step')
 
-    rclpy.spin(controller_openloop)
+    try:
+        rclpy.spin(controller_openloop, executor=executor)
+    except KeyboardInterrupt:
+        controller_openloop.get_logger().info('Keyboard interrupt, shutting down.\n')
 
     # Destroy the node explicitly
     # (optional - otherwise it will be done automatically
     # when the garbage collector destroys the node object)
-    controller_openloop.destroy_node()
+    controller_openloop.destroy_node()  
+
     rclpy.shutdown()
 
 if __name__ == '__main__':
