@@ -10,7 +10,7 @@ from action_msgs.msg import GoalStatus
 from smart_control_interfaces.action import MoveStage
 from smart_control_interfaces.srv import GetPoint
 
-from rclpy.callback_groups import ReentrantCallbackGroup, MutuallyExclusiveCallbackGroup
+from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
 from rclpy.executors import MultiThreadedExecutor
 
 from functools import partial

@@ -39,5 +39,3 @@ def generate_launch_description():
     ld.add_action(arg_insertion_step)
 
     ld.add_action(manual_control)
-    
-    return ld

@@ -132,7 +132,7 @@ class SmartNeedleInterface(Node):
     #### Variables initialization ###################################################
 
         # Print numpy floats with only 3 decimal places
-        np.set_printoptions(formatter={'float': lambda x: "{0:0.4f}".format(x)})
+        np.set_printoptions(formatter={'float': lambda x: "{0:0.15f}".format(x)})
 
         # Load zFrameToRobot transform
         try:
@@ -157,7 +157,7 @@ class SmartNeedleInterface(Node):
         q_tf1= np.quaternion(np.cos(np.deg2rad(-45)), np.sin(np.deg2rad(-45)), 0, 0)
         q_tf2= np.quaternion(np.cos(np.deg2rad(90)), 0, 0, np.sin(np.deg2rad(90)))
         q_tf = q_tf1*q_tf2  
-        needle_base= np.array([self.initial_point[0], self.initial_point[1]-0*self.needle_length, self.initial_point[2]])  # needle base at experiment init
+        needle_base= np.array([self.initial_point[0], self.initial_point[1]-self.needle_length, self.initial_point[2]])  # needle base at experiment init
         self.needleToRobot = np.concatenate((needle_base, np.array([q_tf.w, q_tf.x, q_tf.y, q_tf.z])))
 
         self.get_logger().info('skin_entry = %s' %self.skin_entry)
@@ -166,9 +166,8 @@ class SmartNeedleInterface(Node):
         # Store skin_entry point in needle frame
         air_gap = self.skin_entry - self.initial_point
         air_gap_robot = np.array([air_gap[0], air_gap[1], air_gap[2], 1,0,0,0])
-        self.skin_entry_needle = pose_inv_transform(air_gap_robot, self.needleToRobot)[0:3] # air_gap_needle
-        self.get_logger().info('air_gap_robot = %s' %air_gap_robot)
-        self.get_logger().info('air_gap_needle = %s' %self.skin_entry_needle)
+        self.skin_entry_needle = pose_inv_transform(air_gap_robot, self.needleToRobot)[0:3] # air_gap (distance, not point) in needle coordinates
+        self.get_logger().info('/needle/state/skin_entry (air_gap) (needle frame) = %s' %self.skin_entry_needle)
 
 #################################################################################
 #### Service client functions ###################################################
@@ -213,11 +212,10 @@ class SmartNeedleInterface(Node):
         self.stage = np.array([robot.x, robot.y, robot.z])
         # Store current needle base pose (in needle frame)
         if (self.needleToRobot.size != 0):
-            needle_q = self.needleToRobot[3:7]                                      
-            # needle_base = np.array([self.stage[0], self.stage[1], self.stage[2], needle_q[0], needle_q[1], needle_q[2], needle_q[3]]) # base in robot frame       
-            # self.needle_pose = pose_inv_transform(needle_base, self.needleToRobot)  # needle base in needle frame
-            delta = self.stage - self.initial_point
-            needle_pose_robot = np.array([delta[0], delta[1], delta[2], needle_q[0], needle_q[1], needle_q[2], needle_q[3]])
+            # Needle orientation in robot frame
+            needle_q = self.needleToRobot[3:7]  
+            # Remember to substract needle length to get the point at the needle BASE not at the guide                                    
+            needle_pose_robot = np.array([self.stage[0], self.stage[1]-self.needle_length, self.stage[2], needle_q[0], needle_q[1], needle_q[2], needle_q[3]])
             self.needle_pose = pose_inv_transform(needle_pose_robot, self.needleToRobot)  # needle base in needle frame
 
     # Get current sensor measurements

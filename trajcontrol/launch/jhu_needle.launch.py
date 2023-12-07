@@ -73,7 +73,8 @@ def generate_launch_description():
     )
 
     ld_hyperionstream = IncludeLaunchDescription( # Real hardware (sim_level_needle = 2)
-        PythonLaunchDescriptionSource(os.path.join(pkg_hyperion_interrogator, 'hyperion_talker.launch.py')),
+        # PythonLaunchDescriptionSource(os.path.join(pkg_hyperion_interrogator, 'hyperion_talker.launch.py')),
+        PythonLaunchDescriptionSource(os.path.join(pkg_hyperion_interrogator, 'hyperion_streamer.launch.py')),
         condition=conditions.IfCondition(
             PythonExpression([LaunchConfiguration('sim_level'), " == 2"])
         ),
