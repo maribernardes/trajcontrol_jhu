@@ -65,7 +65,7 @@ class SmartNeedleInterface(Node):
 
         self.initial_point = np.empty(shape=[0,3])      # Robot position at begining of experiment (robot frame)
         self.skin_entry = np.empty(shape=[0,3])         # Skin entry at begining of experiment (robot frame)
-        self.skin_entry_needle = np.empty(shape=[0,3])  # Skin entry at begining of experiment (needle frame)
+        self.air_gap_needle = np.empty(shape=[0,3])     # Distance between needle guide and skin entry at begining of experiment (needle frame)
         
         self.stage = np.empty(shape=[0,3])              # Robot current position (robot frame)
         self.needle_pose = np.empty(shape=[0,7])        # Base pose (needle frame)
@@ -88,20 +88,20 @@ class SmartNeedleInterface(Node):
 
     #### Published topics ###################################################
 
-        # # Tip (robot frame)
+        # Needle tip (robot frame)
         # timer_period_tip = 0.3 # seconds
         # self.timer_tip = self.create_timer(timer_period_tip, self.timer_tip_callback)        
         # self.publisher_tip = self.create_publisher(PoseStamped,'/needle/state/tip', 10)  #(robot frame)
 
-        # Base (needle frame)
+        # Needle base (needle frame)
         timer_period_needle_pose = 0.3 # seconds
         self.timer_needle_pose = self.create_timer(timer_period_needle_pose, self.timer_needle_pose_callback)        
         self.publisher_needle_pose = self.create_publisher(PoseStamped,'/stage/state/needle_pose', 10)  #(needle frame)
         
-        # Skin_entry (needle frame)
-        timer_period_skin_entry_needle = 0.3 # seconds
-        self.timer_skin_entry_needle = self.create_timer(timer_period_skin_entry_needle, self.timer_skin_entry_needle_callback)        
-        self.publisher_skin_entry_needle = self.create_publisher(Point, '/needle/state/skin_entry', 10) #(needle frame)
+        # Air gap (needle frame)
+        timer_period_air_gap_needle = 0.3 # seconds
+        self.timer_air_gap_needle = self.create_timer(timer_period_air_gap_needle, self.timer_air_gap_needle_callback)        
+        self.publisher_air_gap_needle = self.create_publisher(Point, '/needle/state/skin_entry', 10) #(needle frame)
 
         # Needle shape (zFrame)
         if self.push_to_bridge is True:
@@ -163,11 +163,11 @@ class SmartNeedleInterface(Node):
         self.get_logger().info('skin_entry = %s' %self.skin_entry)
         self.get_logger().info('initial_point = %s' %self.initial_point)
 
-        # Store skin_entry point in needle frame
-        air_gap = self.skin_entry - self.initial_point
-        air_gap_robot = np.array([air_gap[0], air_gap[1], air_gap[2], 1,0,0,0])
-        self.skin_entry_needle = pose_inv_transform(air_gap_robot, self.needleToRobot)[0:3] # air_gap (distance, not point) in needle coordinates
-        self.get_logger().info('/needle/state/skin_entry (air_gap) (needle frame) = %s' %self.skin_entry_needle)
+        # Store air_gap in needle frame
+        skin_entry_needle = pose_inv_transform(np.array([self.skin_entry[0], self.skin_entry[1], self.skin_entry[2], 1,0,0,0]), self.needleToRobot)[0:3]
+        initial_point_needle = pose_inv_transform(np.array([self.initial_point[0], self.initial_point[1], self.initial_point[2], 1,0,0,0]), self.needleToRobot)[0:3]
+        self.air_gap_needle = skin_entry_needle - initial_point_needle
+        self.get_logger().info('/needle/state/skin_entry (air_gap) (needle frame) = %s' %self.air_gap_needle)
 
 #################################################################################
 #### Service client functions ###################################################
@@ -279,14 +279,14 @@ class SmartNeedleInterface(Node):
 
     # Publishes skin_entry in needle coordinate frame
     # TODO: When possible, replace Point by PointStamped
-    def timer_skin_entry_needle_callback (self):
+    def timer_air_gap_needle_callback (self):
         # Publish last needle pose in robot frame
-        if (self.skin_entry_needle.size != 0):
+        if (self.air_gap_needle.size != 0):
             msg = Point()
             # msg.header.stamp = self.get_clock().now().to_msg()
             # msg.header.frame_id = 'needle'
-            msg = Point(x=self.skin_entry_needle[0], y=self.skin_entry_needle[1], z=self.skin_entry_needle[2])
-            self.publisher_skin_entry_needle.publish(msg)
+            msg = Point(x=self.air_gap_needle[0], y=self.air_gap_needle[1], z=self.air_gap_needle[2])
+            self.publisher_air_gap_needle.publish(msg)
 
     # Publishes needle displacement (x,y,z) in the needle coordinate frame
     def timer_needle_pose_callback (self):
