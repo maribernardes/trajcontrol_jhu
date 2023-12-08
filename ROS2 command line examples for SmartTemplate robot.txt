@@ -8,16 +8,22 @@ TO USE DEBUG MODE:
 _______________________________________________________________________________________
 1) Launch robot in manual mode
 
-ros2 launch trajcontrol manual_smart.launch.py motion_step:=1.0 sim_level:=2
+*Launch SmartTemplate packages
+ros2 launch smart_template robot.launch sim_level:=1
 ros2 run smart_template keypress
 
+*Launch trajcontrol packages
+ros2 launch trajcontrol manual_smart.launch insertion_step:=10.0 lateral_step:=1.0
+
 OBS: 
-motion_step argument is optional (default = 1.0 mm)
-sim_level argument is optional (default = 2): 1=virtual / 2=real
+sim_level argument (default = 2) is optional: 1=virtual / 2=real
+insertion_step (default = 10.0 mm) and lateral_step (default = 1.0 mm) arguments are optional
 Use numkeyboard arrows to move robot in horizontal and vertical directions. 
 Use ENTER for needle insertion and SPACE for needle retraction.
+Use R to retract the needle, H for homing the robot, and A to abort current motion (to be implemented in the robot).
+
 _______________________________________________________________________________________
-2) Launch OpenIGTLink demo (manual control)
+2) Launch OpenIGTLink demo (manual control) - TO BE UPDATED
 
 ***3DSlicer***
 Open Slicer (using version 5.3)
@@ -48,7 +54,9 @@ ros2 launch ros2_igtl_bridge bridge.launch.py
 *Launch SmartTemplate packages
 ros2 launch smart_template robot.launch.py sim_level:=1 
 ros2 run smart_template keypress
-ros2 launch trajcontrol smartneedle_experiment.launch.py
+
+*Launch trajcontrol packages
+ros2 launch trajcontrol smartneedle_openloop.launch.py
 
 OBS: 
 - use_slicer argument is optional (default=False)
@@ -69,39 +77,33 @@ Step 2: Open SmartNeedle module (IGT)
 
 _______________________________________________________________________________________
 
-Robot without Slicer:
-
-ros2 launch smart_template robot.launch sim_level:=1
-ros2 run smart_template keypress
-
-ros2 launch trajcontrol planning robot.launch sim_level:=1
-
-
- --ros-args -r __ns:=/needle
-
-ros2 run trajcontrol calibrate_sensors --ros-args -r __ns:=/needle
-
-
-
-
-
-
 EXTRAS:
 
-A) Record bag files:
+A) Bag files:
 ros2 bag record -a -o BAG_NAME
+ros2 bag info BAG_NAME
 
 B) Check interrogator topics:
 ros2 topic list
 ros2 topic echo topic_name
 ros2 topic hz topic_name
 
-C) Kill zoombie nodes (Example with igtl_bridge server)
+C) Shutdown scripts (pkill of all launched nodes):
+For needle: ./needle_kill.sh
+For control: ./control_kill.sh
+
+D) Kill zoombie nodes (Example with igtl_bridge server)
+pkill -f -9 igtl_bridge 
+OR
 ps -aux | grep igtl_bridge
 kill -9 NUMBER
 
-ros2 service call /command smart_control_interfaces/srv/ControllerCommand "command: HOME"
-ros2 service call /command smart_control_interfaces/srv/ControllerCommand "command: RETRACT"
-ros2 service call /command smart_control_interfaces/srv/ControllerCommand "command: ABORT"
+E) Save terminal log:
+ros2 launch trajcontrol smartneedle_openloop.launch.py | tee -a smart_needle_interface.log
 
-ros2 action send_goal /move_stage smart_control_interfaces/action/MoveStage "{x: 10.0, z: 0, eps: 0.0001}"
+F) SmartTemplate Action and Services:
+ros2 action send_goal /stage/move_stage smart_control_interfaces/action/MoveStage "{x: 10.0, z: 0.0, eps: 0.05}"
+
+ros2 service call /stage/command smart_control_interfaces/srv/ControllerCommand "command: HOME"
+ros2 service call /stage/command smart_control_interfaces/srv/ControllerCommand "command: RETRACT"
+ros2 service call /stage/command smart_control_interfaces/srv/ControllerCommand "command: ABORT"
