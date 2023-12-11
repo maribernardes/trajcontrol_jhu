@@ -127,16 +127,18 @@ class Planning(Node):
                 q = np.quaternion(self.zFrameToRobot[3], self.zFrameToRobot[4], self.zFrameToRobot[5], self.zFrameToRobot[6]).conj() # Get identity orientation in zFrame coordinates
                 if (self.initial_point.size == 0): # Experiment not initialized
                     self.listen_keyboard == True 
-                    # Change skin_entry only if experiment not initialized yet
+                    # Get 3DSlicer skin_entry point
                     skin_entry_zFrame = np.array([msg_point.pointdata[0].x, msg_point.pointdata[0].y, msg_point.pointdata[0].z, q.w,q.x,q.y,q.z])
                     skin_entry_robot = pose_transform(skin_entry_zFrame, self.zFrameToRobot)
-                    self.skin_entry = skin_entry_robot[0:3]
-                    self.get_logger().info('Skin entry (stage) = %f, %f, %f' %(skin_entry_robot[0], skin_entry_robot[1], skin_entry_robot[2]))
-                # Target can be changed in 3DSlicer after initialization
-                target_zFrame = np.array([msg_point.pointdata[1].x, msg_point.pointdata[1].y, msg_point.pointdata[1].z, q.w,q.x,q.y,q.z])
-                target_robot = pose_transform(target_zFrame, self.zFrameToRobot)
-                self.target = target_robot[0:3]
-                self.get_logger().info('Target (stage) = = %f, %f, %f' %(target_robot[0], target_robot[1], target_robot[2]))
+                    # Get 3DSlicer target point
+                    target_zFrame = np.array([msg_point.pointdata[1].x, msg_point.pointdata[1].y, msg_point.pointdata[1].z, q.w,q.x,q.y,q.z])
+                    target_robot = pose_transform(target_zFrame, self.zFrameToRobot)
+                    # Store self.target point
+                    self.target = target_robot[0:3]
+                    # Store self.skin_entry point (use only depth from 3DSlicer skin_entry and the other coordinates come from target)
+                    self.skin_entry = np.array([target_robot[0], skin_entry_robot[1], target_robot[2]])
+                    self.get_logger().info('Skin entry (stage) = %f, %f, %f' %(self.skin_entry[0], self.skin_entry[1], self.skin_entry[2]))
+                    self.get_logger().info('Target (stage) = = %f, %f, %f' %(self.target[0], self.target[1], self.target[2]))
 
     # A keyboard hotkey was pressed 
     def keyboard_callback(self, msg):
