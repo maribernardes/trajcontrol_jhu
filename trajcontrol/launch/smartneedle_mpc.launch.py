@@ -43,6 +43,12 @@ def generate_launch_description():
         ]
     )
 
+    # Use estimator node to calculate Jacobian
+    estimator = Node(
+        package = "trajcontrol",
+        executable = "estimator"
+    )
+
     # Use manual controller
     # to be replaced by controller_mpc
     mpc_control = Node(
@@ -67,7 +73,8 @@ def generate_launch_description():
     ld.add_action(arg_insertion_step)
     
     ld.add_action(planning)
-    ld.add_action(smart_needle_interface)    
+    ld.add_action(smart_needle_interface)
+    ld.add_action(estimator)
     ld.add_action(mpc_control)
     
     return ld
