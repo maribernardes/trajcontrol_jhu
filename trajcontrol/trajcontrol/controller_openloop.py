@@ -1,6 +1,8 @@
 import rclpy
 import numpy as np
 import time
+import math
+import quaternion
 
 from std_msgs.msg import Int8
 from rclpy.node import Node
@@ -8,7 +10,7 @@ from rclpy.action import ActionClient
 from action_msgs.msg import GoalStatus
 
 from smart_control_interfaces.action import MoveStage
-from smart_control_interfaces.srv import GetPoint
+from smart_control_interfaces.srv import GetPoint, GetPose
 
 from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
 from rclpy.executors import MultiThreadedExecutor
@@ -28,11 +30,13 @@ from functools import partial
 # '/keyboard/key'           (std_msgs.msg.Int8)
 #
 # Service client:    
-# '/planning/get_skin_entry'     (smart_control_interfaces.srv.GetPoint) - robot frame
-# '/planning/get_target'         (smart_control_interfaces.srv.GetPoint) - robot frame
+# '/planning/get_skin_entry' (smart_control_interfaces.srv.GetPoint) - robot frame
+# '/planning/get_target'     (smart_control_interfaces.srv.GetPoint) - robot frame
+# '/stage/get_position'      (smart_control_interfaces.srv.GetPoint) - robot frame
+# '/needle/get_tip'          (smart_control_interfaces.srv.GetPose) - robot frame
 #
 # Action client:
-# 'stage/move'              (smart_control_interfaces.action.MoveStage) - robot frame
+# 'stage/move'               (smart_control_interfaces.action.MoveStage) - robot frame
 #
 ##########################################################################
 
@@ -49,31 +53,53 @@ class ControllerOpenLoop(Node):
         # Stored values
         self.skin_entry = np.empty(shape=[3,0])    # Stage position after experiment initialization
         self.target = np.empty(shape=[3,0])        # Planned target point
+
+        self.tip = np.empty(shape=[0,5])        # Current tip input  [x, y, z, angle_h, angle_v]
+        self.stage = np.empty(shape=[0,3])      # Current base input [x, y, z]
+        self.cmd = np.empty(shape=[0,3])        # Control output to the robot stage
         
+        self.step = 0                       # Current insertion step         
+        self.depth = 0.0                    # Current insertion depth = stage[1] - skin_entry[1]
+
+        self.wait_stage = False       # Flag to wait for tip value
+        self.wait_tip = False         # Flag to wait for base value
         self.robot_idle = False       # Flag for move robot
-        self.step = 0                 # Current insertion step         
 
     #### Action/service clients ###################################################
  
         # OBS: Node will not spin until servers are available
+        jacobian_inputs_callgroup = MutuallyExclusiveCallbackGroup() 
         # /stage/move Action client
         self.move_action_client = ActionClient(self, MoveStage, '/stage/move', callback_group=MutuallyExclusiveCallbackGroup())
         if not self.move_action_client.server_is_ready():
-            self.get_logger().warn('/stage/move action not available, waiting...')
+            self.get_logger().info('/stage/move action not available, waiting...')
         while not self.move_action_client.wait_for_server(timeout_sec=5.0):
             pass
         # /planning/get_target Service client
         self.target_service_client = self.create_client(GetPoint, '/planning/get_target', callback_group=MutuallyExclusiveCallbackGroup())
         if not self.target_service_client.service_is_ready():
-            self.get_logger().warn('/planning/get_target service not available, waiting...')
+            self.get_logger().info('/planning/get_target service not available, waiting...')
         while not self.target_service_client.wait_for_service(timeout_sec=5.0):
             pass     
         # /planning/get_skin_entry Service client
         self.skin_entry_service_client = self.create_client(GetPoint, '/planning/get_skin_entry', callback_group=MutuallyExclusiveCallbackGroup())
         if not self.skin_entry_service_client.service_is_ready():
-            self.get_logger().warn('/planning/get_skin_entry service not available, waiting...')
+            self.get_logger().info('/planning/get_skin_entry service not available, waiting...')
         while not self.skin_entry_service_client.wait_for_service(timeout_sec=5.0):
             pass      
+        # /stage/get_position Service client
+        self.stage_position_service_client = self.create_client(GetPoint, '/stage/get_position', callback_group=jacobian_inputs_callgroup)
+        if not self.stage_position_service_client.service_is_ready():
+            self.get_logger().info('/stage/get_position service not available, waiting...')
+        while not self.stage_position_service_client.wait_for_service(timeout_sec=5.0):
+            pass          
+        # /needle/get_tip Service client
+        self.tip_service_client = self.create_client(GetPose, '/needle/get_tip', callback_group=jacobian_inputs_callgroup)
+        if not self.tip_service_client.service_is_ready():
+            self.get_logger().info('/needle/get_tip service not available, waiting...')
+        while not self.tip_service_client.wait_for_service(timeout_sec=5.0):
+            pass  
+
         self.get_logger().info('Action and services available')
 
     #### Initialize variables ###################################################
@@ -97,13 +123,23 @@ class ControllerOpenLoop(Node):
 
 #### Internal functions ###################################################
 
+    def next_step(self):
+        # Update system inputs (tip and base) - To compare with closed-loop control
+        # Responses trigger move_step
+        self.wait_stage = True
+        self.wait_tip = True
+        self.update_stage()
+        self.update_tip()
+
     def move_step(self):
+        self.robot_idle = False
+        self.step += 1
         # Calculate step goal
-        max_depth = self.target[1]
         step_depth = self.skin_entry[1] + self.insertion_step*self.step
-        x = self.skin_entry[0]
-        y = min(max_depth, step_depth)
-        z = self.skin_entry[2]
+        x = self.target[0]
+        y = min(self.target[1], step_depth)
+        z = self.target[2]
+        self.cmd = np.array([x,y,z])
         # Send to stage
         self.move_stage(x, y, z) 
 
@@ -113,20 +149,12 @@ class ControllerOpenLoop(Node):
     def keyboard_callback(self, msg):
         if (msg.data == 32):
             if (self.robot_idle is True):
+                self.get_logger().warn('Start next step...')
                 self.next_step()
             else:
                 self.get_logger().info('Motion not available')
 
 #### Service client functions ###################################################
-
-    # Update target (non blocking service request)
-    def next_step(self):
-        # Get current target
-        request = GetPoint.Request()
-        future = self.target_service_client.call_async(request)
-        # When target request done, do callback
-        future.add_done_callback(partial(self.update_target_callback))
-        return future.result()
 
     # Get target (blocking service request)
     def get_target(self):
@@ -152,21 +180,53 @@ class ControllerOpenLoop(Node):
             self.get_logger().error('Invalid skin_entry')
             return None
 
-    # Update target service response message (Response)
-    def update_target_callback(self, future):
+    # Update stage (non blocking service request)
+    def update_stage(self):
+        request = GetPoint.Request()
+        future = self.stage_position_service_client.call_async(request)
+        # When stage request done, do callback
+        future.add_done_callback(partial(self.update_stage_callback))
+        return future.result()
+
+    # Update tip (non blocking service request)
+    def update_tip(self):
+        request = GetPose.Request()
+        future = self.tip_service_client.call_async(request)
+        # When tip request done, do callback
+        future.add_done_callback(partial(self.update_tip_callback))
+        return future.result()
+
+    # Update stage service response message (Response)
+    def update_stage_callback(self, future):
         try:
-            target = future.result()
-            if target.valid is True:
-                self.target = np.array([target.x, target.y, target.z])
-                if (self.robot_idle is True):
-                    self.step += 1
-                    self.get_logger().info('STEP #%i' %self.step)
-                    self.get_logger().info('Target: %s' %self.target)
-                    self.move_step()
+            stage = future.result()
+            if stage.valid is True:
+                self.stage = np.array([stage.x, stage.y, stage.z])
+                self.depth = self.stage[1] - self.skin_entry[1]
+                self.wait_stage = False
             else:
-                self.get_logger().error('Invalid target')
+                self.get_logger().error('Invalid stage position')
         except Exception as e:
-            self.get_logger().error('Service call failed: %r' %(e,))
+            self.get_logger().error('Stage call failed: %r' %(e,))
+        if (self.wait_stage is False) and (self.wait_tip is False) and (self.robot_idle is True):
+            self.move_step()
+
+    # Update tip service response message (Response)
+    def update_tip_callback(self, future):
+        try:
+            tip = future.result()
+            if tip.valid is True:
+                q = np.array([tip.qw, tip.qx, tip.qy, tip.qz])
+                self.get_logger().info('Tip q = %s' %q)
+                angles = get_angles(q)
+                self.tip = np.array([tip.x, tip.y, tip.z, angles[0],angles[1]])
+                self.wait_tip = False
+            else:
+                self.get_logger().error('Invalid tip pose')
+        except Exception as e:
+            self.get_logger().error('Tip call failed: %r' %(e,))
+        if (self.wait_stage is False) and (self.wait_tip is False) and (self.robot_idle is True):
+            self.move_step()    
 
 #### Action client functions ###################################################
 
@@ -179,7 +239,7 @@ class ControllerOpenLoop(Node):
         goal_msg.y = float(y)
         goal_msg.z = float(z)
         goal_msg.eps = 0.5 # in mm
-        self.get_logger().info('Move request: %.4f, %.4f, %.4f' % (x, y, z))
+        self.get_logger().debug('Move request: %.4f, %.4f, %.4f' % (x, y, z))
         # Wait for action server
         self.move_action_client.wait_for_server()        
         self.send_goal_future = self.move_action_client.send_goal_async(goal_msg)
@@ -198,14 +258,48 @@ class ControllerOpenLoop(Node):
         result = future.result().result
         status = future.result().status
         if status == GoalStatus.STATUS_SUCCEEDED:
-            self.get_logger().info('Goal reached: %.4f, %.4f, %.4f' %(result.x, result.y, result.z))
+            error = self.target - self.tip[0:3]
+            # Print values
+            self.get_logger().info('\n****** STEP #%i ******\nInsertion depth: %f\nTip: (%f, %f, %f)\nTarget: (%f, %f, %f)\
+                \nError: (%f, %f, %f / %f, %f) \nStage: (%f, %f, %f) \nCmd: (%f, %f, %f)\nReached: (%.4f, %.4f, %.4f)*********************\n' \
+                %(self.step, self.depth, \
+                self.tip[0],self.tip[1], self.tip[2],\
+                self.target[0], self.target[1], self.target[2],\
+                error[0], error[1], error[2], self.tip[3], self.tip[4],\
+                self.stage[0], self.stage[1], self.stage[2],\
+                self.cmd[0], self.cmd[1], self.cmd[2], \
+                result.x, result.y, result.z)
+            )
+            self.get_logger().warn('Hit SPACE for next step')
             self.stage = np.array([result.x, result.y, result.z])
-            self.get_logger().warn('Ready for next step. Hit SPACE')
         elif result.error_code == 1:
             self.get_logger().info('Move failed: TIMETOUT')
         self.robot_idle = True       # Set robot status to IDLE
 
-#########################################################################
+########################################################################
+
+# Function: get_angles(q)
+# DO: Get needle angles in horizontal and vertical plane
+# Inputs: 
+#   q: quaternion (numpy array [qw, qx, qy, qz])
+# Output:
+#   angles: angle vector (numpy array [horiz, vert])
+def get_angles(q):
+
+    #Define rotation quaternion
+    q_tf= np.quaternion(q[0], q[1], q[2], q[3])
+
+    #Get needle current Z axis vector (needle insertion direction)
+    u_z = np.quaternion(0, 0, 0, 1)
+    v = q_tf*u_z*q_tf.conj()
+
+    #Angles are components in x (horizontal) and z(vertical)
+    # horiz = math.atan2(v.x, -v.y)
+    horiz = math.atan2(v.x, v.y)
+    vert = math.atan2(v.z, math.sqrt(v.x**2+v.y**2))
+    return np.array([horiz, vert])
+
+########################################################################
 
 def main(args=None):
     rclpy.init(args=args)
