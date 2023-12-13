@@ -190,7 +190,6 @@ class SmartNeedleInterface(Node):
 
     # Send requested tip pose in robot frame
     def get_tip_callback(self, request, response):
-        self.get_logger().info('Received tip request')
         if (self.tip.size == 0):
             response.valid = False
         else:
@@ -227,6 +226,7 @@ class SmartNeedleInterface(Node):
         # Tip is last point in shape
         p_tip = np.array([shape[N-1].position.x, shape[N-1].position.y, shape[N-1].position.z]) 
         q_tip = np.array([shape[N-1].orientation.w, shape[N-1].orientation.x, shape[N-1].orientation.y, shape[N-1].orientation.z])
+        self.get_logger().info('Tip q (needle) = %s' %q_tip)
         tip_needle = np.array([p_tip[0], p_tip[1], p_tip[2], q_tip[0], q_tip[1], q_tip[2], q_tip[3]]) # needle tip in needle frame
         # Transform from needle to robot frame
         if (self.needleToRobot.size != 0): 
