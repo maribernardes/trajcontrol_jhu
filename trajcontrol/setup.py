@@ -28,6 +28,7 @@ setup(
             'estimator = trajcontrol.estimator:main',
             'controller_manual_smart = trajcontrol.controller_manual_smart:main',
             'controller_openloop = trajcontrol.controller_openloop:main',
+            'controller_rand = trajcontrol.controller_rand:main',
             'controller_mpc = trajcontrol.controller_mpc:main',
             'save_file = trajcontrol.save_file:main',
             'smart_needle_interface = trajcontrol.smart_needle_interface:main',
