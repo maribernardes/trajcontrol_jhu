@@ -30,7 +30,7 @@ def generate_launch_description():
         parameters = [
             {"lateral_step": LaunchConfiguration('lateral_step')},
             {"insertion_step": LaunchConfiguration('insertion_step')},
-            {"wait_init": False},
+            {"wait_init": False}
         ]
     )
 
@@ -39,3 +39,5 @@ def generate_launch_description():
     ld.add_action(arg_insertion_step)
 
     ld.add_action(manual_control)
+        
+    return ld
