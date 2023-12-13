@@ -71,6 +71,19 @@ class Planning(Node):
 
         self.listen_keyboard = False                # Flag for waiting keyboard input (set robot initial position)
 
+
+    #### Action/service clients ###################################################
+
+        # Action client to move_stage
+        self.action_client = ActionClient(self, MoveStage, '/stage/move')
+
+        # /stage/get_position Service client
+        self.stage_position_service_client = self.create_client(GetPoint, '/stage/get_position')
+        if not self.stage_position_service_client.service_is_ready():
+            self.get_logger().warn('/stage/get_position service not available, waiting...')
+        while not self.stage_position_service_client.wait_for_service(timeout_sec=5.0):
+            pass  
+
 #### Subscribed topics ###################################################
 
         #Topics from 3D Slicer interface (OpenIGTLink Bridge)
@@ -82,21 +95,12 @@ class Planning(Node):
         self.subscription_keyboard = self.create_subscription(Int8, '/keyboard/key', self.keyboard_callback, 10)
         self.subscription_keyboard # prevent unused variable warning
 
-        #Topics from robot node
-        self.subscription_robot = self.create_subscription(PointStamped, '/stage/state/guide_pose', self.robot_callback, 10)
-        self.subscription_robot # prevent unused variable warning
-
-#### Action client ###################################################
-
-        # Action client to move_stage
-        self.action_client = ActionClient(self, MoveStage, '/stage/move')
-
 #### Service server ##############################################
 
         # Service servers to return planning points
-        self.skin_entry_server = None  # Activate only after robot is initialized (see function self.get_result_callback)
-        self.target_server = None  # Activate only after robot is initialized (see function self.get_result_callback)
-        self.initial_point_server = None  # Activate only after robot is initialized (see function self.get_result_callback)
+        self.skin_entry_server = None       # Activate only after robot is initialized (see function self.get_result_callback)
+        self.target_server = None           # Activate only after robot is initialized (see function self.get_result_callback)
+        self.initial_point_server = None    # Activate only after robot is initialized (see function self.get_result_callback)
 
 #### Interface initialization ###################################################
         # Print numpy floats with only 3 decimal places
@@ -111,27 +115,31 @@ class Planning(Node):
         except IOError:
             self.get_logger().info('Could not find zframe.csv file')
 
+        # Request stage (initialized only one - no update implemented yet)
+        self.stage = self.get_stage()
+        self.get_logger().info('Robot (stage) = %f, %f, %f' %(self.stage[0], self.stage[1], self.stage[2]))
+
 #### Listening callbacks ###################################################
 
-    # Get current robot pose
-    def robot_callback(self, msg_robot):
-        robot = msg_robot.point
-        self.stage = np.array([robot.x, robot.y, robot.z])
+    # # Get current robot pose
+    # def robot_callback(self, msg_robot):
+    #     robot = msg_robot.point
+    #     self.stage = np.array([robot.x, robot.y, robot.z])
         
     # Get current skin entry and target points 
     def bridge_point_callback(self, msg_point):
         if (self.use_slicer is True): # Only for Slicer
             name = msg_point.name      
             npoints = len(msg_point.pointdata)
-            if (name == 'TARGET') and (npoints == 2): # Name is adjusted in 3DSlicer module
+            if (name == 'ENTRY') and (npoints == 2): # Name is adjusted in 3DSlicer module
                 q = np.quaternion(self.zFrameToRobot[3], self.zFrameToRobot[4], self.zFrameToRobot[5], self.zFrameToRobot[6]).conj() # Get identity orientation in zFrame coordinates
                 if (self.initial_point.size == 0): # Experiment not initialized
                     self.listen_keyboard == True 
                     # Get 3DSlicer skin_entry point
-                    skin_entry_zFrame = np.array([msg_point.pointdata[0].x, msg_point.pointdata[0].y, msg_point.pointdata[0].z, q.w,q.x,q.y,q.z])
+                    skin_entry_zFrame = np.array([msg_point.pointdata[1].x, msg_point.pointdata[1].y, msg_point.pointdata[1].z, q.w,q.x,q.y,q.z])
                     skin_entry_robot = pose_transform(skin_entry_zFrame, self.zFrameToRobot)
                     # Get 3DSlicer target point
-                    target_zFrame = np.array([msg_point.pointdata[1].x, msg_point.pointdata[1].y, msg_point.pointdata[1].z, q.w,q.x,q.y,q.z])
+                    target_zFrame = np.array([msg_point.pointdata[0].x, msg_point.pointdata[0].y, msg_point.pointdata[0].z, q.w,q.x,q.y,q.z])
                     target_robot = pose_transform(target_zFrame, self.zFrameToRobot)
                     # Store self.target point
                     self.target = target_robot[0:3]
@@ -150,6 +158,21 @@ class Planning(Node):
             # Place robot at initial point
             self.get_logger().info('Place robot at initial point...')
             self.send_cmd(self.skin_entry[0], self.stage[1], self.skin_entry[2])
+
+
+#### Service client functions ###################################################
+
+    # Get stage (blocking service request)
+    def get_stage(self):
+        request = GetPoint.Request()
+        future = self.stage_position_service_client.call_async(request)
+        rclpy.spin_until_future_complete(self, future)
+        stage = future.result()
+        if stage.valid is True:
+            return np.array([stage.x, stage.y, stage.z])
+        else:
+            self.get_logger().error('Invalid stage')
+            return None
 
 #### Service server functions ###################################################
 
@@ -295,21 +318,13 @@ def main(args=None):
 
     planning = Planning()   
 
-    planning.get_logger().info('Waiting robot to connect...')
-    # Wait for robot
-    while rclpy.ok():
-        rclpy.spin_once(planning)
-        if(planning.stage.size == 0): # Keep loop while stage position not set
-            pass
-        else:
-            if (planning.use_slicer is False):
-                planning.get_logger().info('Robot current position = %s' %(planning.stage))
-                planning.get_logger().warn('**** Hit SPACE to initialize experiment ****')
-                planning.get_logger().warn('REMEMBER: Use another terminal to run keypress node')
-                planning.listen_keyboard = True
-            break
-
-    if (planning.use_slicer is True):
+    if (planning.use_slicer is False):
+        initial_point = np.array([planning.stage[0], planning.stage[1], planning.stage[2]])
+        planning.get_logger().info('Planned robot initial point = %s' %(initial_point))
+        planning.get_logger().warn('**** To position robot and initialize experiment, hit SPACE ****')
+        planning.get_logger().warn('REMEMBER: Use another terminal to run keypress node')
+        planning.listen_keyboard = True    
+    else:
         planning.get_logger().warn('**** Waiting planning points from 3DSlicer ****')
     # Wait for skin_entry to be defined
     while rclpy.ok():
