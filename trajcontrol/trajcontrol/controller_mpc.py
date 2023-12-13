@@ -191,7 +191,19 @@ class ControllerMPC(Node):
             self.get_logger().error('Invalid target')
             return None
 
-    # Update target (non blocking service request)
+    # Get skin_entry (blocking service request)
+    def get_skin_entry(self):
+        request = GetPoint.Request()
+        future = self.skin_entry_service_client.call_async(request)
+        rclpy.spin_until_future_complete(self, future)
+        skin_entry = future.result()
+        if skin_entry.valid is True:
+            return np.array([skin_entry.x, skin_entry.y, skin_entry.z])
+        else:
+            self.get_logger().error('Invalid skin_entry')
+            return None
+        
+    # Update stage (non blocking service request)
     def update_stage(self):
         request = GetPoint.Request()
         future = self.stage_position_service_client.call_async(request)
@@ -199,7 +211,7 @@ class ControllerMPC(Node):
         future.add_done_callback(partial(self.update_stage_callback))
         return future.result()
 
-    # Update target (non blocking service request)
+    # Update tip (non blocking service request)
     def update_tip(self):
         request = GetPose.Request()
         future = self.tip_service_client.call_async(request)
@@ -219,18 +231,6 @@ class ControllerMPC(Node):
         future.add_done_callback(partial(self.update_jacobian_callback))
         return future.result()
 
-    # Get skin_entry (blocking service request)
-    def get_skin_entry(self):
-        request = GetPoint.Request()
-        future = self.skin_entry_service_client.call_async(request)
-        rclpy.spin_until_future_complete(self, future)
-        skin_entry = future.result()
-        if skin_entry.valid is True:
-            return np.array([skin_entry.x, skin_entry.y, skin_entry.z])
-        else:
-            self.get_logger().error('Invalid skin_entry')
-            return None
-
     # Update stage service response message (Response)
     def update_stage_callback(self, future):
         try:
@@ -243,7 +243,7 @@ class ControllerMPC(Node):
                 self.get_logger().error('Invalid stage position')
         except Exception as e:
             self.get_logger().error('Stage call failed: %r' %(e,))
-        if (self.wait_tip is False):
+        if (self.wait_tip is False) and (self.wait_jacobian is False):
             self.move_step()
 
     # Update tip service response message (Response)
@@ -259,7 +259,7 @@ class ControllerMPC(Node):
                 self.get_logger().error('Invalid tip pose')
         except Exception as e:
             self.get_logger().error('Tip call failed: %r' %(e,))
-        if (self.wait_stage is False):
+        if (self.wait_stage is False) and (self.wait_jacobian is False):
             self.move_step()
 
     # Update jacobian service response message (Response)
@@ -283,10 +283,10 @@ class ControllerMPC(Node):
         self.update_tip()
 
     def move_step(self):
+        self.wait_jacobian = True
         self.step += 1
         # Update Jacobian
         # Response triggers send_cmd (mpc_controller)
-        self.wait_jacobian = True
         self.update_jacobian()
 
     def send_cmd(self):
@@ -460,8 +460,6 @@ class ControllerMPC(Node):
         if status == GoalStatus.STATUS_SUCCEEDED:
             self.get_logger().info('Goal succeeded! Result: %f, %f' %(result.x, result.z))
             self.get_logger().info('Tip: (%f, %f, %f)'   % (self.tip[0], self.tip[1], self.tip[2]))
-             # Check if max depth reached
-            # if (abs(self.tip[1]-self.target[1]) <= DEPTH_MARGIN): 
             if (abs(self.depth) >= abs(self.target[1])):
                 self.robot_idle = False
                 self.get_logger().info('ATTENTION: Insertion depth reached! Please stop insertion')                
