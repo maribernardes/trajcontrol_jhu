@@ -58,6 +58,7 @@ class Estimator(Node):
         # Load initial Jacobian from file
         try:
             trajcontrol_share_directory = get_package_share_directory('trajcontrol')
+            self.get_logger().info('Loading initial Jacobian from %s/files' %(trajcontrol_share_directory))
             self.J  = np.array(loadtxt(os.path.join(trajcontrol_share_directory,'files','jacobian.csv'), delimiter=','))
         except IOError:
             self.get_logger().info('Could not find jacobian.csv file')
