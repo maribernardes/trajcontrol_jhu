@@ -16,6 +16,7 @@ from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
 from rclpy.executors import MultiThreadedExecutor
 
 from functools import partial
+from .utils import get_angles
 
 #########################################################################
 #
@@ -261,11 +262,11 @@ class ControllerOpenLoop(Node):
             error = self.target - self.tip[0:3]
             # Print values
             self.get_logger().info('\n****** STEP #%i ******\nInsertion depth: %f\nTip: (%f, %f, %f)\nTarget: (%f, %f, %f)\
-                \nError: (%f, %f, %f / %f, %f) \nStage: (%f, %f, %f) \nCmd: (%f, %f, %f)\nReached: (%.4f, %.4f, %.4f)*********************\n' \
+                \nError: (%f, %f, %f / %f (%f deg), %f (%f deg)) \nStage: (%f, %f, %f) \nCmd: (%f, %f, %f)\nReached: (%.4f, %.4f, %.4f)*********************\n' \
                 %(self.step, self.depth, \
                 self.tip[0],self.tip[1], self.tip[2],\
                 self.target[0], self.target[1], self.target[2],\
-                error[0], error[1], error[2], self.tip[3], self.tip[4],\
+                error[0], error[1], error[2], self.tip[3], math.degrees(self.tip[3]), self.tip[4], math.degrees(self.tip[4]),\
                 self.stage[0], self.stage[1], self.stage[2],\
                 self.cmd[0], self.cmd[1], self.cmd[2], \
                 result.x, result.y, result.z)
@@ -275,29 +276,6 @@ class ControllerOpenLoop(Node):
         elif result.error_code == 1:
             self.get_logger().info('Move failed: TIMETOUT')
         self.robot_idle = True       # Set robot status to IDLE
-
-########################################################################
-
-# Function: get_angles(q)
-# DO: Get needle angles in horizontal and vertical plane
-# Inputs: 
-#   q: quaternion (numpy array [qw, qx, qy, qz])
-# Output:
-#   angles: angle vector (numpy array [horiz, vert])
-def get_angles(q):
-
-    #Define rotation quaternion
-    q_tf= np.quaternion(q[0], q[1], q[2], q[3])
-
-    #Get needle current Z axis vector (needle insertion direction)
-    u_z = np.quaternion(0, 0, 0, 1)
-    v = q_tf*u_z*q_tf.conj()
-
-    #Angles are components in x (horizontal) and z(vertical)
-    # horiz = math.atan2(v.x, -v.y)
-    horiz = math.atan2(v.x, v.y)
-    vert = math.atan2(v.z, math.sqrt(v.x**2+v.y**2))
-    return np.array([horiz, vert])
 
 ########################################################################
 

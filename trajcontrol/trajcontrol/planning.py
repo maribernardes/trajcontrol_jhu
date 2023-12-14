@@ -16,6 +16,7 @@ from smart_control_interfaces.srv import GetPoint
 
 from numpy import loadtxt
 from ament_index_python.packages import get_package_share_directory
+from .utils import *
 
 #########################################################################
 #
@@ -266,50 +267,6 @@ class Planning(Node):
             self.get_logger().info('Goal failed: TIMETOUT')
         self.robot_idle = True       # Set robot status to IDLE
             
-############################################################Pointrray [x, y, z, qw, qx, qy, qz])
-# Output:
-#   x_new: pose in new reference frame (numpy array [x, y, z, qw, qx, qy, qz])
-def pose_transform(x_orig, x_tf):
-
-    #Define frame transformation
-    p_tf = np.quaternion(0, x_tf[0], x_tf[1], x_tf[2])
-    q_tf= np.quaternion(x_tf[3], x_tf[4], x_tf[5], x_tf[6])
-
-    #Define original position and orientation
-    p_orig = np.quaternion(0, x_orig[0], x_orig[1], x_orig[2])
-    q_orig = np.quaternion(x_orig[3], x_orig[4], x_orig[5], x_orig[6])
-
-    #Transform to new frame
-    q_new = q_tf*q_orig
-    p_new = q_tf*p_orig*q_tf.conj() + p_tf
-
-    x_new = np.array([p_new.x, p_new.y, p_new.z, q_new.w, q_new.x, q_new.y, q_new.z])
-    return x_new
-
-########################################################################
-
-# Function: pose_inv_transform
-# DO: Transform pose to new reference frame with inverse transform 
-# Inputs: 
-#   x_origin: pose in original reference frame (numpy array [x, y, z, qw, qx, qy, qz])
-#   x_tf: transformation from original to new frame (numpy array [x, y, z, qw, qx, qy, qz])
-# Output:
-#   x_new: pose in new reference frame (numpy array [x, y, z, qw, qx, qy, qz])
-def pose_inv_transform(x_orig, x_tf):
-
-    #Define frame transformation
-    p_tf = np.quaternion(0, x_tf[0], x_tf[1], x_tf[2])
-    q_tf= np.quaternion(x_tf[3], x_tf[4], x_tf[5], x_tf[6])
-
-    #Define original position and orientation
-    p_orig = np.quaternion(0, x_orig[0], x_orig[1], x_orig[2])
-    q_orig = np.quaternion(x_orig[3], x_orig[4], x_orig[5], x_orig[6])
-
-    #Transform to new frame
-    q_new = q_tf.conj()*q_orig
-    p_new = q_tf.conj()*(p_orig-p_tf)*q_tf
-    x_new = np.array([p_new.x, p_new.y, p_new.z, q_new.w, q_new.x, q_new.y, q_new.z])
-    return x_new
 
 ########################################################################
 

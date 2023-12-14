@@ -13,6 +13,7 @@ from numpy import loadtxt, asarray, savetxt
 
 from trajcontrol_interfaces.srv import GetJacobian
 from ament_index_python.packages import get_package_share_directory
+from .utils import get_angles
 
 #########################################################################
 #

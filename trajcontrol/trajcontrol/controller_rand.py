@@ -18,6 +18,7 @@ from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
 from rclpy.executors import MultiThreadedExecutor
 
 from functools import partial
+from .utils import get_angles
 
 #########################################################################
 #
@@ -290,28 +291,6 @@ class ControllerRand(Node):
             #     self.robot_idle = True
         else:
             self.get_logger().info('Goal failed with status: %s' %(result.status))
-
-########################################################################
-
-# Function: get_angles(q)
-# DO: Get needle angles in horizontal and vertical plane
-# Inputs: 
-#   q: quaternion (numpy array [qw, qx, qy, qz])
-# Output:
-#   angles: angle vector (numpy array [horiz, vert])
-def get_angles(q):
-
-    #Define rotation quaternion
-    q_tf= np.quaternion(q[0], q[1], q[2], q[3])
-
-    #Get needle current Z axis vector (needle insertion direction)
-    u_z = np.quaternion(0, 0, 0, 1)
-    v = q_tf*u_z*q_tf.conj()
-
-    #Angles are components in x (horizontal) and z(vertical)
-    horiz = math.atan2(v.x, -v.y)
-    vert = math.atan2(v.z, math.sqrt(v.x**2+v.y**2))
-    return np.array([horiz, vert])
 
 ########################################################################
 
