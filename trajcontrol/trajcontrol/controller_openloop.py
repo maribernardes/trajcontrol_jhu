@@ -217,8 +217,10 @@ class ControllerOpenLoop(Node):
         try:
             tip = future.result()
             if tip.valid is True:
+                p = np.array([tip.x, tip.y, tip.z])
                 q = np.array([tip.qw, tip.qx, tip.qy, tip.qz])
-                self.get_logger().info('Tip q = %s' %q)
+                self.get_logger().info('Tip p (robot) = %s' %p)
+                self.get_logger().info('Tip q (robot) = %s' %q)
                 angles = get_angles(q)
                 self.tip = np.array([tip.x, tip.y, tip.z, angles[0],angles[1]])
                 self.wait_tip = False
@@ -261,11 +263,12 @@ class ControllerOpenLoop(Node):
         if status == GoalStatus.STATUS_SUCCEEDED:
             error = self.target - self.tip[0:3]
             # Print values
-            self.get_logger().info('\n****** STEP #%i ******\nInsertion depth: %f\nTip: (%f, %f, %f)\nTarget: (%f, %f, %f)\
-                \nError: (%f, %f, %f / %f (%f deg), %f (%f deg)) \nStage: (%f, %f, %f) \nCmd: (%f, %f, %f)\nReached: (%.4f, %.4f, %.4f)*********************\n' \
+            self.get_logger().info('\n****** STEP #%i ******\nInsertion depth: %f\nTarget: (%f, %f, %f)\nTip: (%f, %f, %f)\
+                \nError: (%f, %f, %f / %f (%f deg), %f (%f deg))\nStage: (%f, %f, %f)\nCmd: (%f, %f, %f)\
+                \nReached: (%.4f, %.4f, %.4f)\n*********************' \
                 %(self.step, self.depth, \
-                self.tip[0],self.tip[1], self.tip[2],\
                 self.target[0], self.target[1], self.target[2],\
+                self.tip[0],self.tip[1], self.tip[2],\
                 error[0], error[1], error[2], self.tip[3], math.degrees(self.tip[3]), self.tip[4], math.degrees(self.tip[4]),\
                 self.stage[0], self.stage[1], self.stage[2],\
                 self.cmd[0], self.cmd[1], self.cmd[2], \

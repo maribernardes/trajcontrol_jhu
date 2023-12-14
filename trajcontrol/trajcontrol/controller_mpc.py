@@ -460,7 +460,20 @@ class ControllerMPC(Node):
         status = future.result().status
         if status == GoalStatus.STATUS_SUCCEEDED:
             self.get_logger().info('Goal succeeded! Result: %f, %f' %(result.x, result.z))
-            self.get_logger().info('Tip: (%f, %f, %f)'   % (self.tip[0], self.tip[1], self.tip[2]))
+            error = self.target - self.tip[0:3]
+            # Print values
+            self.get_logger().info('\n****** STEP #%i ******\nInsertion depth: %f\nTarget: (%f, %f, %f)\nTip: (%f, %f, %f)\
+                \nError: (%f, %f, %f / %f (%f deg), %f (%f deg))\nStage: (%f, %f, %f)\nJ: %s\nCmd: (%f, %f, %f)\
+                \nReached: (%.4f, %.4f, %.4f)\n*********************' \
+                %(self.step, self.depth, \
+                self.target[0], self.target[1], self.target[2],\
+                self.tip[0],self.tip[1], self.tip[2],\
+                error[0], error[1], error[2], self.tip[3], math.degrees(self.tip[3]), self.tip[4], math.degrees(self.tip[4]),\
+                self.stage[0], self.stage[1], self.stage[2],\
+                self.Jc, \
+                self.cmd[0], self.cmd[1], self.cmd[2], \
+                result.x, result.y, result.z)
+            )
             if (abs(self.depth) >= abs(self.target[1])):
                 self.robot_idle = False
                 self.get_logger().info('ATTENTION: Insertion depth reached! Please stop insertion')                
