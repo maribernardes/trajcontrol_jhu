@@ -69,9 +69,10 @@ class SmartNeedleInterface(Node):
         self.skin_entry = np.empty(shape=[0,3])         # Skin entry at begining of experiment (robot frame)
         self.air_gap_needle = np.empty(shape=[0,3])     # Distance between needle guide and skin entry at begining of experiment (needle frame)
         
-        self.stage = np.empty(shape=[0,3])              # Robot current position (robot frame)
-        self.needle_pose = np.empty(shape=[0,7])        # Base pose (needle frame)
-        self.tip = np.empty(shape=[0,7])                  # Tip pose (robot frame)
+        self.stage = np.empty(shape=[0,3])              # Robot position (robot frame)
+        self.needle_pose = np.empty(shape=[0,7])        # Robot position (needle frame)
+        self.tip = np.empty(shape=[0,7])                # Tip pose (robot frame)
+        self.tip_needle = np.empty(shape=[0,7])         # Tip pose (needle frame)
 
         # NeedleShape Bridge message
         self.shapecount = 0                         # Number of shape packace received
@@ -129,7 +130,7 @@ class SmartNeedleInterface(Node):
     #### Service server ###################################################
 
         # Service server to return planning points
-        self.service_server_tip = None   # Activate only after self.tip is available
+        self.service_server_tip = None          # Activate only after self.tip is available
 
     #### Variables initialization ###################################################
 
@@ -196,6 +197,8 @@ class SmartNeedleInterface(Node):
             response.valid = False
         else:
             response.valid = True
+            self.get_logger().info('Tip p (needle) = [%f, %f, %f]' %(self.tip_needle[0], self.tip_needle[1], self.tip_needle[2]))
+            self.get_logger().info('Tip q (needle) = [%f, %f, %f, %f]' %(self.tip_needle[3], self.tip_needle[4], self.tip_needle[5], self.tip_needle[6]))
             response.x = self.tip[0]
             response.y = self.tip[1]
             response.z = self.tip[2]
@@ -230,19 +233,8 @@ class SmartNeedleInterface(Node):
         q_tip = np.array([shape[N-1].orientation.w, shape[N-1].orientation.x, shape[N-1].orientation.y, shape[N-1].orientation.z])
         # Transform from needle to robot frame
         if (self.needleToRobot.size != 0): 
-            self.get_logger().info('Tip q (needle) = %s' %q_tip)
-            ##############
-            # Quick fix to put tip orientation in needle frame
-            # TODO: Remove this fix when shape_sensing publishes correctly in needle frame
-            q_wrong = np.quaternion(q_tip[0], q_tip[1], q_tip[2], q_tip[3])
-            q_fix = np.quaternion(self.needleToRobot[3], self.needleToRobot[4], self.needleToRobot[5], self.needleToRobot[6])
-            q_correct = q_fix*q_wrong
-            q_tip = np.array([q_correct.w, q_correct.x, q_correct.y, q_correct.z])
-            ##############
-            self.get_logger().info('Tip q (needle corr) = %s' %q_tip)
-            tip_needle = np.array([p_tip[0], p_tip[1], p_tip[2], q_tip[0], q_tip[1], q_tip[2], q_tip[3]]) # needle tip in needle frame
-
-            self.tip = pose_transform(tip_needle, self.needleToRobot)             # needle tip in robot frametimer_skin_entry_needle_callback
+            self.tip_needle = np.array([p_tip[0], p_tip[1], p_tip[2], q_tip[0], q_tip[1], q_tip[2], q_tip[3]]) # needle tip in needle frame
+            self.tip = pose_transform(self.tip_needle, self.needleToRobot)             # needle tip in robot frametimer_skin_entry_needle_callback
             if self.service_server_tip is None:
                 self.service_server_tip = self.create_service(GetPose, '/needle/get_tip', self.get_tip_callback)
                 self.get_logger().info('/needle/get_tip service is available')
