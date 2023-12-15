@@ -150,7 +150,7 @@ class ControllerMPC(Node):
         # Define number of control steps
         self.insertion_length = self.target[1] - self.skin_entry[1]
         self.ns = math.ceil(self.insertion_length/self.insertion_step)
-        self.get_logger().info('\nMPC horizon: H = %i\nTotal insertion: %i steps' %(self.H, self.ns))
+        self.get_logger().info('\nMPC horizon: H = %i\nInsertion length: %.4fmm\nTotal insertion: %i steps' %(self.H, self.insertion_length, self.ns))
 
         # Define motion safety limits
         limit_x = (float(self.skin_entry[0])-SAFE_LIMIT, float(self.skin_entry[0])+SAFE_LIMIT)
@@ -421,8 +421,10 @@ class ControllerMPC(Node):
             self.get_logger().info('Expected final control error: (%f, %f, %f, %f) ' % (exp_err[0], exp_err[1], exp_err[2], exp_err[3]))
 
         else:   # Finished all insertion steps
+            self.get_logger().info('No more MPC steps')
+            step_depth = self.skin_entry[1] + self.insertion_step*self.step
             self.cmd[0] = self.stage[0]
-            self.cmd[1] = self.stage[1]
+            self.cmd[1] = min(self.target[1], step_depth)
             self.cmd[2] = self.stage[2]
             u = np.array([[self.stage[0], self.stage[2]]])
 
