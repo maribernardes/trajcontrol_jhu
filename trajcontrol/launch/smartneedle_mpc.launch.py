@@ -11,18 +11,6 @@ def generate_launch_description():
 
     ld = LaunchDescription()
 
-    arg_insertion_length = DeclareLaunchArgument(
-        "insertion_length",
-        default_value = "10.0",
-        description = "Set total insertion lenght inside tissue [mm]. Used only if use_slicer is True"
-    )
-
-    arg_insertion_step = DeclareLaunchArgument(
-            "insertion_step",
-            default_value = "10.0",
-            description = "Insertion step size in mm"
-    )
-
     arg_filename = DeclareLaunchArgument(
             "filename",
             default_value = "ros2bag_mpc_"+ datetime.now().strftime("%Y_%m_%d-%H_%M_%S"),
@@ -30,13 +18,13 @@ def generate_launch_description():
     )
 
     # Use planning interface
-    # air_gap is not used because use_slicer is True
+    # air_gap and insertion_length are not used because use_slicer is True
     planning= Node(
         package = "trajcontrol",
         executable = "planning",
+        emulate_tty = True,
         parameters = [
             {"use_slicer": True},
-            {"insertion_length": LaunchConfiguration('insertion_length')}
         ]
     )
 
@@ -60,10 +48,10 @@ def generate_launch_description():
     mpc_control = Node(
         package = "trajcontrol",
         executable = "controller_mpc",
+        emulate_tty = True,
         parameters = [
             {"lateral_step": 1.0},
-            {"insertion_step": LaunchConfiguration('insertion_step')},
-            {"wait_init": True}
+            {"insertion_step": 5.0},
         ]
     )
 
@@ -72,16 +60,7 @@ def generate_launch_description():
         output = 'screen'
     )
 
-    # # Save data to filename defined by user
-    # save_file = Node(
-    #     package = "trajcontrol",
-    #     executable = "save_file",
-    #     parameters =[{"filename": LaunchConfiguration('filename')}]
-    # )
-
     # Include launch arguments
-    ld.add_action(arg_insertion_length)
-    ld.add_action(arg_insertion_step)
     ld.add_action(arg_filename)
     
     ld.add_action(planning)

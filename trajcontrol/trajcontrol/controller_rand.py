@@ -29,12 +29,14 @@ from .utils import get_angles
 # Useful for Jacobian estimation and validation
 #
 # Subscribes:   
-# '/keyboard/key'               (std_msgs.msg.Int8)
-# '/stage/state/guide_pose'     (geometry_msgs.msg.PointStamped)  - robot frame
+# '/keyboard/key'           (std_msgs.msg.Int8)
+# '/stage/state/guide_pose' (geometry_msgs.msg.PointStamped)  - robot frame
+#
+# Service client:    
+# '/estimator/get_jacobian' (trajcontrol_interfaces.srv.GetJacobian) - robot frame
 #
 # Action/service client:
 # '/move_stage'             (smart_control_interfaces.action.MoveStage) - robot frame
-# '/command'                (smart_control_interfaces.action.MoveStage) - robot frame
 # 
 #########################################################################
 
@@ -52,13 +54,18 @@ class ControllerRand(Node):
 #### Stored variables ###################################################
 
         self.skin_entry = np.empty(shape=[0,3])     # Initial stage pose (relative to beginning of the random insertion)
-        self.stage = np.empty(shape=[0,3])          # Current stage pose
-        self.cmd = np.zeros((1,3))                  # Control output to the robot stage
-        self.depth = 0.0                            # Total insertion depth (from skin_entry)
-        self.Jc = np.zeros((5,3))                   # Jacobian matrix
 
+        self.stage = np.empty(shape=[0,3])          # Current stage pose        
+        self.cmd = np.zeros((1,3))                  # Control output to the robot stage
+        self.Jc = np.zeros((5,3))                   # Jacobian matrix
+ 
         self.step = 0                               # Current insertion step
-        self.robot_idle = False                     # Robot free to new command
+        self.depth = 0.0                            # Total insertion depth (from skin_entry)
+
+        self.wait_stage = False       # Flag to wait for tip value
+        self.wait_tip = False         # Flag to wait for base value
+        self.wait_jacobian = False    # Flag to wait for jacobian value
+        self.robot_idle = False       # Robot status
 
 #### Subscribed topics ###################################################
 
@@ -137,10 +144,10 @@ class ControllerRand(Node):
 
     def move_step(self):
         self.robot_idle = False
+        self.wait_jacobian = True
         self.step += 1
         # Update Jacobian
         # Response triggers move_stage
-        self.wait_jacobian = True
         self.update_jacobian()
 
 #### Listening callbacks ###################################################
@@ -149,7 +156,7 @@ class ControllerRand(Node):
     def keyboard_callback(self, msg):
         if (msg.data == 32):
             if (self.robot_idle is True):
-                self.get_logger().warn('Start next step...')
+                self.get_logger().warn('Starting step #%i...' %(self.step+1))  
                 self.next_step()
             else:
                 self.get_logger().info('Motion not available')
@@ -245,7 +252,7 @@ class ControllerRand(Node):
 
     # Send MoveStage action to robot
     def move_stage(self, x, y, z):
-        # Send command to stage (convert mm to m)
+        # Send command to stage (in mm)
         self.robot_idle = False     # Set robot status to NOT IDLE
         goal_msg = MoveStage.Goal()
         goal_msg.x = float(x)

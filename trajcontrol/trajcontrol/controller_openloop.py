@@ -110,8 +110,7 @@ class ControllerOpenLoop(Node):
 
         self.insertion_step = self.get_parameter('insertion_step').get_parameter_value().double_value
 
-        # Initialize skin_entry
-        self.get_logger().info('Initializing skin_entry and target')
+        # Initialize skin_entry and target
         self.skin_entry = self.get_skin_entry()     # get_skin is a blocking service request
         self.target = self.get_target()     # get_skin is a blocking service request
         self.robot_idle = True
@@ -150,7 +149,7 @@ class ControllerOpenLoop(Node):
     def keyboard_callback(self, msg):
         if (msg.data == 32):
             if (self.robot_idle is True):
-                self.get_logger().warn('Start next step...')
+                self.get_logger().warn('Starting step #%i...' %(self.step+1))  
                 self.next_step()
             else:
                 self.get_logger().info('Motion not available')
@@ -235,7 +234,7 @@ class ControllerOpenLoop(Node):
 
     # Send MoveStage action to robot
     def move_stage(self, x, y, z):
-        # Send command to stage (convert mm to m)
+        # Send command to stage (in mm)
         self.robot_idle = False     # Set robot status to NOT IDLE
         goal_msg = MoveStage.Goal()
         goal_msg.x = float(x)

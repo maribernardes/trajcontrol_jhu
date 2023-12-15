@@ -11,12 +11,6 @@ def generate_launch_description():
 
     ld = LaunchDescription()
 
-    arg_insertion_length = DeclareLaunchArgument(
-        "insertion_length",
-        default_value = "10.0",
-        description = "Set total insertion lenght inside tissue [mm]. Used only if use_slicer is True"
-    )
-
     arg_insertion_step = DeclareLaunchArgument(
             "insertion_step",
             default_value = "10.0",
@@ -30,14 +24,13 @@ def generate_launch_description():
     )
 
     # Use planning interface
-    # air_gap is not used because use_slicer is True
+    # air_gap and insertion_length are not used because use_slicer is True
     planning= Node(
         package = "trajcontrol",
         executable = "planning",
         emulate_tty = True,
         parameters = [
             {"use_slicer": True},
-            {"insertion_length": LaunchConfiguration('insertion_length')}
         ]
     )
 
@@ -50,7 +43,7 @@ def generate_launch_description():
         ]
     )
 
-    # Use manual controller
+    # Use open-loop controller
     # to be replaced by controller_openloop
     open_control = Node(
         package = "trajcontrol",
@@ -59,7 +52,6 @@ def generate_launch_description():
         parameters = [
             {"lateral_step": 1.0},
             {"insertion_step": LaunchConfiguration('insertion_step')},
-            {"wait_init": True}
         ]
     )
 
@@ -69,7 +61,6 @@ def generate_launch_description():
     )
 
     # Include launch arguments
-    ld.add_action(arg_insertion_length)
     ld.add_action(arg_insertion_step)
     ld.add_action(arg_filename)
     
