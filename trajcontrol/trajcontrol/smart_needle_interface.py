@@ -163,14 +163,14 @@ class SmartNeedleInterface(Node):
         needle_base= np.array([self.initial_point[0], self.initial_point[1]-self.needle_length, self.initial_point[2]])  # needle base at experiment init
         self.needleToRobot = np.concatenate((needle_base, np.array([q_tf.w, q_tf.x, q_tf.y, q_tf.z])))
 
-        self.get_logger().info('skin_entry = %s' %self.skin_entry)
-        self.get_logger().info('initial_point = %s' %self.initial_point)
+        self.get_logger().info('skin_entry = [%.4f, %.4f, %.4f]' %(self.skin_entry[0],self.skin_entry[1],self.skin_entry[2]))
+        self.get_logger().info('initial_point = [%.4f, %.4f, %.4f]' %(self.initial_point[0],self.initial_point[1],self.initial_point[2]))
 
         # Store air_gap in needle frame
         skin_entry_needle = pose_inv_transform(np.array([self.skin_entry[0], self.skin_entry[1], self.skin_entry[2], 1,0,0,0]), self.needleToRobot)[0:3]
         initial_point_needle = pose_inv_transform(np.array([self.initial_point[0], self.initial_point[1], self.initial_point[2], 1,0,0,0]), self.needleToRobot)[0:3]
         self.air_gap_needle = skin_entry_needle - initial_point_needle
-        self.get_logger().info('/needle/state/skin_entry (air_gap) (needle frame) = %s' %self.air_gap_needle)
+        self.get_logger().info('/needle/state/skin_entry (air_gap) (needle frame) = [%.4f, %.4f, %.4f]' %(self.air_gap_needle[0], self.air_gap_needle[1], self.air_gap_needle[2]))
 
 #################################################################################
 #### Service client functions ###################################################
@@ -197,8 +197,8 @@ class SmartNeedleInterface(Node):
             response.valid = False
         else:
             response.valid = True
-            self.get_logger().info('Tip p (needle) = [%f, %f, %f]' %(self.tip_needle[0], self.tip_needle[1], self.tip_needle[2]))
-            self.get_logger().info('Tip q (needle) = [%f, %f, %f, %f]' %(self.tip_needle[3], self.tip_needle[4], self.tip_needle[5], self.tip_needle[6]))
+            self.get_logger().info('Tip p (needle) = [%.4f, %.4f, %.4f]' %(self.tip_needle[0], self.tip_needle[1], self.tip_needle[2]))
+            self.get_logger().info('Tip q (needle) = [%.4f, %.4f, %.4f, %.4f]' %(self.tip_needle[3], self.tip_needle[4], self.tip_needle[5], self.tip_needle[6]))
             response.x = self.tip[0]
             response.y = self.tip[1]
             response.z = self.tip[2]

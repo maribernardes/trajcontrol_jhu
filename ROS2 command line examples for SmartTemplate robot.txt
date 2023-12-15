@@ -13,7 +13,7 @@ ros2 launch smart_template robot.launch sim_level:=1
 ros2 run smart_template keypress
 
 *Launch trajcontrol packages
-ros2 launch trajcontrol manual_smart.launch insertion_step:=10.0 lateral_step:=1.0
+ros2 launch trajcontrol manual_smart.launch.py insertion_step:=10.0 lateral_step:=1.0
 
 OBS: 
 sim_level argument (default = 2) is optional: 1=virtual / 2=real
@@ -39,7 +39,30 @@ OBS:
 Use numkeyboard arrows to move robot in horizontal and vertical directions. 
 Use ENTER for needle insertion and SPACE for needle retraction.
 _______________________________________________________________________________________
-3) Launch Smart Needle experiment (mpc control TO BE INCLUDED)
+
+3) Initialize Jacobian (uses rand controller)
+
+***ROS2 computer***
+
+*Launch SmartNeedle packages
+ros2 launch trajcontrol jhu_needle.launch.py 
+ros2 run hyperion_interrogator calibrate_sensors --ros-args -r __ns:=/needle
+
+*Launch SmartTemplate packages
+ros2 launch smart_template robot.launch.py sim_level:=2
+ros2 run smart_template keypress
+
+*Launch trajcontrol packages
+ros2 launch trajcontrol smartneedle_init_jacobian.launch.py | tee -a initJ.log
+
+OBS: 
+- air_gap argument is optional (default=25.0mm)
+- insertion_step argument is optional (default=5.0mm)
+- total_steps argument is optional (default=4)
+
+- Use SPACE to signal a new step. 
+_______________________________________________________________________________________
+4) Launch Smart Needle experiment (mpc control TO BE INCLUDED)
 
 ***ROS2 computer***
 
@@ -52,7 +75,7 @@ ros2 launch ros2_igtl_bridge bridge.launch.py
 <CONFIGURE 3DSLICER NOW - see bellow>
 
 *Launch SmartTemplate packages
-ros2 launch smart_template robot.launch.py sim_level:=1 
+ros2 launch smart_template robot.launch.py sim_level:=2 
 ros2 run smart_template keypress
 
 *Launch trajcontrol packages
@@ -99,7 +122,7 @@ ps -aux | grep igtl_bridge
 kill -9 NUMBER
 
 E) Save terminal log:
-ros2 launch trajcontrol smartneedle_openloop.launch.py | tee -a smart_needle_interface.log
+ros2 launch trajcontrol smartneedle_openloop.launch.py | tee -a openloop.log
 
 F) SmartTemplate Action and Services:
 ros2 action send_goal /stage/move_stage smart_control_interfaces/action/MoveStage "{x: 10.0, z: 0.0, eps: 0.05}"

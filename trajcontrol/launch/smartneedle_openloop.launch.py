@@ -68,21 +68,14 @@ def generate_launch_description():
         output = 'screen'
     )
 
-    # # Save data to filename defined by user
-    # save_file = Node(
-    #     package = "trajcontrol",
-    #     executable = "save_file",
-    #     parameters =[{"filename": LaunchConfiguration('filename')}]
-    # )
-
     # Include launch arguments
     ld.add_action(arg_insertion_length)
     ld.add_action(arg_insertion_step)
     ld.add_action(arg_filename)
     
+    ld.add_action(open_control)
     ld.add_action(planning)
     ld.add_action(smart_needle_interface)
-    ld.add_action(open_control)
 
     ld.add_action(rosbag)
     

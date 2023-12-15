@@ -38,8 +38,7 @@ from .utils import get_angles
 # 
 #########################################################################
 
-SAFE_LIMIT = 6.0        # Maximum control output delta from stage initial position [mm] (in each direction)
-DEPTH_MARGIN = 1.5      # Final insertion length margin [mm]
+SAFE_LIMIT = 4.0        # Maximum control output delta from stage initial position [mm] (in each direction)
 
 class ControllerRand(Node):
 
@@ -47,7 +46,8 @@ class ControllerRand(Node):
         super().__init__('controller_rand')
 
         #Declare node parameters
-        self.declare_parameter('insertion_step', 10.0)          # Insertion step parameter
+        self.declare_parameter('insertion_step', 5.0)    # Insertion step parameter
+        self.declare_parameter('total_steps', 4)          # Insertion step parameter
         
 #### Stored variables ###################################################
 
@@ -65,10 +65,6 @@ class ControllerRand(Node):
         #Topic from keypress node
         self.subscription_keyboard = self.create_subscription(Int8, '/keyboard/key', self.keyboard_callback, 10)
         self.subscription_keyboard # prevent unused variable warning
-
-        #Topics from robot node
-        self.subscription_robot = self.create_subscription(PointStamped, '/stage/state/guide_pose', self.robot_callback, 10)
-        self.subscription_robot # prevent unused variable warning
 
 #### Action/service client ###################################################
 
@@ -115,6 +111,7 @@ class ControllerRand(Node):
         np.set_printoptions(formatter={'float': lambda x: "{0:0.4f}".format(x)})
 
         self.insertion_step = self.get_parameter('insertion_step').get_parameter_value().double_value
+        self.total_steps = self.get_parameter('total_steps').get_parameter_value().integer_value
 
         # Request planning (initialized only one - no update implemented yet)
         self.skin_entry = self.get_skin_entry()
@@ -127,18 +124,32 @@ class ControllerRand(Node):
         # self.get_logger().info('Skin entry = %s' %self.skin_entry)
         # self.get_logger().info('Limit = %s' %self.limit)
 
-#### Listening callbacks ###################################################
 
-    # Get robot pose
-    def robot_callback(self, msg_robot):
-        robot = msg_robot.point
-        self.stage = np.array([robot.x, robot.y, robot.z])
+#### Internal functions ###################################################
+
+    def next_step(self):
+        # Update jacobian request inputs (tip and base)
+        # Responses trigger move_step
+        self.wait_stage = True
+        self.wait_tip = True
+        self.update_stage()
+        self.update_tip()
+
+    def move_step(self):
+        self.robot_idle = False
+        self.step += 1
+        # Update Jacobian
+        # Response triggers move_stage
+        self.wait_jacobian = True
+        self.update_jacobian()
+
+#### Listening callbacks ###################################################
 
     # A keyboard hotkey was pressed 
     def keyboard_callback(self, msg):
         if (msg.data == 32):
             if (self.robot_idle is True):
-                self.robot_idle = False
+                self.get_logger().warn('Start next step...')
                 self.next_step()
             else:
                 self.get_logger().info('Motion not available')
@@ -191,12 +202,13 @@ class ControllerRand(Node):
             stage = future.result()
             if stage.valid is True:
                 self.stage = np.array([stage.x, stage.y, stage.z])
+                self.depth = self.stage[1] - self.skin_entry[1]
                 self.wait_stage = False
             else:
                 self.get_logger().error('Invalid stage position')
         except Exception as e:
             self.get_logger().error('Stage call failed: %r' %(e,))
-        if (self.wait_tip is False):
+        if (self.wait_stage is False) and (self.wait_tip is False) and (self.robot_idle is True):
             self.move_step()
 
     # Update tip service response message (Response)
@@ -212,7 +224,7 @@ class ControllerRand(Node):
                 self.get_logger().error('Invalid tip pose')
         except Exception as e:
             self.get_logger().error('Tip call failed: %r' %(e,))
-        if (self.wait_stage is False):
+        if (self.wait_stage is False) and (self.wait_tip is False) and (self.robot_idle is True):
             self.move_step()
 
     # Update jacobian service response message (Response)
@@ -223,43 +235,26 @@ class ControllerRand(Node):
             self.wait_jacobian = False
         except Exception as e:
             self.get_logger().error('Jacobian call failed: %r' %(e,))
-        self.send_cmd()
-
-#### Internal functions ###################################################
-
-    def next_step(self):
-        # Update jacobian request inputs (tip and base)
-        # Responses trigger move_step
-        self.wait_stage = True
-        self.wait_tip = True
-        self.update_stage()
-        self.update_tip()
-
-    def move_step(self):
-        self.step += 1
-        # Update Jacobian
-        # Response triggers send_cmd (mpc_controller)
-        self.wait_jacobian = True
-        self.update_jacobian()
-    
-    # Send MoveStage action to robot
-    def send_cmd(self):
         # Random select an input withing SAFE_LIMIT
         P = np.random.uniform(-SAFE_LIMIT, SAFE_LIMIT, 2)
         self.cmd = self.skin_entry + np.array([P[0], self.step*self.insertion_step, P[1]])
-        self.get_logger().info('Step #%i: [%f, %f, %f] ' % (self.step, self.cmd[0], self.cmd[1], self.cmd[2]))
+        self.get_logger().info('Step #%i: [%.4f, %.4f, %.4f] ' % (self.step, self.cmd[0], self.cmd[1], self.cmd[2]))
+        self.move_stage(self.cmd[0], self.cmd[1], self.cmd[2])
 
-        # Prepare service message
+#### Action client functions ###################################################
+
+    # Send MoveStage action to robot
+    def move_stage(self, x, y, z):
+        # Send command to stage (convert mm to m)
+        self.robot_idle = False     # Set robot status to NOT IDLE
         goal_msg = MoveStage.Goal()
-        goal_msg.x = float(self.cmd[0])
-        goal_msg.y = float(self.cmd[1])
-        goal_msg.z = float(self.cmd[2])
-        goal_msg.eps = 0.0001
-        self.robot_idle = False
-        self.get_logger().info('Control: x=%f, y = %f, z=%f' % (self.cmd[0], self.cmd[1], self.cmd[2]))
-
-        # MoveStage call - send command to stage
-        self.move_action_client.wait_for_server() # Waiting for action server        
+        goal_msg.x = float(x)
+        goal_msg.y = float(y)
+        goal_msg.z = float(z)
+        goal_msg.eps = 0.5 # in mm
+        self.get_logger().debug('Move request: %.4f, %.4f, %.4f' % (x, y, z))
+        # Wait for action server
+        self.move_action_client.wait_for_server()        
         self.send_goal_future = self.move_action_client.send_goal_async(goal_msg)
         self.send_goal_future.add_done_callback(self.move_response_callback)
 
@@ -277,20 +272,26 @@ class ControllerRand(Node):
         result = future.result().result
         status = future.result().status
         if status == GoalStatus.STATUS_SUCCEEDED:
+            # Print values
+            self.get_logger().info('\n****** STEP #%i ******\nInsertion depth: %f\nTip: (%f, %f, %f)\
+                \nStage: (%f, %f, %f)\nCmd: (%f, %f, %f)\
+                \nReached: (%.4f, %.4f, %.4f)\n*********************' \
+                %(self.step, self.depth, \
+                self.tip[0],self.tip[1], self.tip[2],\
+                self.stage[0], self.stage[1], self.stage[2],\
+                self.cmd[0], self.cmd[1], self.cmd[2], \
+                result.x, result.y, result.z)
+            )
             self.stage = np.array([result.x, result.y, result.z])
-            self.depth = self.stage[1] - self.skin_entry[1]
-            self.get_logger().info('Goal succeeded! Result: %s, %f, %f' %(result.x, result.y, result.z))
-            self.get_logger().info('Depth count: %.1fmm' % (self.depth))      
-            self.get_logger().warn('Press SPACE for next step...')
-            self.robot_idle = True
-            # # Check if max depth reached
-            # if (abs(self.depth-self.insertion_length) <= DEPTH_MARGIN): 
-            #     self.robot_idle = False
-            #     self.get_logger().info('ATTENTION: Depth margin reached! Please stop insertion')                
-            # else:
-            #     self.robot_idle = True
-        else:
-            self.get_logger().info('Goal failed with status: %s' %(result.status))
+            if (self.step < self.total_steps):
+                self.get_logger().warn('Hit SPACE for next step')
+                self.robot_idle = True       # Set robot status to IDLE
+            else:
+                self.get_logger().warn('ATTENTION: Total number of steps reached! Please stop insertion')                
+                self.get_logger().warn('Press Ctrl+C to finalize')                
+                self.robot_idle = False      # Not taking more steps
+        elif result.error_code == 1:
+            self.get_logger().info('Move failed: TIMETOUT')
 
 ########################################################################
 

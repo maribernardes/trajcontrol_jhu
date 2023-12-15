@@ -61,6 +61,7 @@ class Estimator(Node):
             trajcontrol_share_directory = get_package_share_directory('trajcontrol')
             self.get_logger().info('Loading initial Jacobian from %s/files' %(trajcontrol_share_directory))
             self.J  = np.array(loadtxt(os.path.join(trajcontrol_share_directory,'files','jacobian.csv'), delimiter=','))
+            self.get_logger().info('Initial Jacobian transform\n J = %s' %(self.J))
         except IOError:
             self.get_logger().info('Could not find jacobian.csv file')
         if (self.save_J == True):
@@ -107,7 +108,7 @@ class Estimator(Node):
             trajcontrol_share_directory = get_package_share_directory('trajcontrol')
             try:
                 savetxt(os.path.join(trajcontrol_share_directory,'files','jacobian.csv'), asarray(self.J), delimiter=',')
-                self.get_logger().info('Save Jacobian transform %s' %(self.J))
+                self.get_logger().info('Save Jacobian transform\n J = %s' %(self.J))
             except IOError:
                 self.get_logger().error('Could NOT save Jacobian transform')
         J_image_matrix = CvBridge().cv2_to_imgmsg(self.J)
