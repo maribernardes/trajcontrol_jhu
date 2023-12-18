@@ -111,6 +111,8 @@ class Estimator(Node):
                 self.get_logger().info('Save Jacobian transform\n J = %s' %(self.J))
             except IOError:
                 self.get_logger().error('Could NOT save Jacobian transform')
+        else:
+            self.get_logger().info('Jc = %s' %(self.J))
         J_image_matrix = CvBridge().cv2_to_imgmsg(self.J)
         J_image_matrix.header.stamp = self.get_clock().now().to_msg()
         return J_image_matrix

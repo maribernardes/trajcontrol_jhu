@@ -54,6 +54,7 @@ from .utils import *
 ##########################################################################
 
 SAFE_LIMIT = 6.0    # Maximum control output delta from entry point [mm]
+GALIL_ERR = 0.5
 
 class ControllerMPC(Node):
 
@@ -63,17 +64,19 @@ class ControllerMPC(Node):
         #Declare node parameters
         self.declare_parameter('insertion_step', 10.0)          # Insertion step parameter
         self.declare_parameter('H', 4)                          # Horizon size
-        self.declare_parameter('filename', 'my_data') #Name of file where data values are saved
+        self.declare_parameter('filename', 'mpc_data')    # Name of file where data values are saved
 
         # Set .mat filename and path
         trajcontrol_share_directory = get_package_share_directory('trajcontrol') 
-        self.filename = os.path.join(trajcontrol_share_directory,'data',self.get_parameter('filename').get_parameter_value().string_value + '_pred.mat') #String with full path to file
-
+        self.filename = os.path.join(trajcontrol_share_directory,'data',self.get_parameter('filename').get_parameter_value().string_value + '.mat') #String with full path to file
+        self.get_logger().info('Saving experiment data to %s' %self.filename)
+        
     #### Stored variables ###################################################
         self.skin_entry = np.empty(shape=[0,3])  # Skin entry position
         self.target = np.empty(shape=[0,3])      # Target [x, y, z]
         self.goal = np.empty(shape=[0,5])        # Control goal [target_x, target_y, _target_z, 0.0, 0.0]
         
+        self.tip_pose = np.empty(shape=[0,7])    # Current tip pose   [x, y, z, qw, qx, qy, qz] in robot frame
         self.tip = np.empty(shape=[0,5])         # Current tip input  [x, y, z, angle_h, angle_v]
         self.stage = np.empty(shape=[0,3])       # Current base input [x, y, z]
         self.cmd = np.empty(shape=[0,3])         # Control output to the robot stage
@@ -157,12 +160,19 @@ class ControllerMPC(Node):
         limit_z = (float(self.skin_entry[2])-SAFE_LIMIT, float(self.skin_entry[2])+SAFE_LIMIT)
         self.limit = [limit_x, limit_z]
 
-        # Prediction (save to mat file)
-        self.u_pred = np.zeros((self.ns,self.H,2))
-        self.y_pred = np.zeros((self.ns,self.H,5))
+        # Experiment data (save to .mat file)
+        self.depth_data = np.zeros((1, 1, self.ns+1))       # Insertion depth before control action
+        self.stage_data = np.zeros((1, 3, self.ns+1))       # Stage input before control action
+        self.tip_data = np.zeros((1, 5, self.ns+1))         # Tip input before control action
+        self.tip_pose_data = np.zeros((1, 7, self.ns+1))    # Tip pose before control action
+        self.jacobian_data = np.zeros((5, 3, self.ns))    # Jacobian matrix
+        self.cmd_data = np.zeros((1, 3, self.ns))         # Step control action
+        self.u_pred = np.zeros((self.H, 2, self.ns))      # MPC Prediction
+        self.y_pred = np.zeros((self.H, 5, self.ns))      # MPC Prediction
 
         # Set robot as ready
         self.robot_idle = True 
+
 
     #### Subscribed topics ###################################################
 
@@ -190,7 +200,7 @@ class ControllerMPC(Node):
         rclpy.spin_until_future_complete(self, future)
         target = future.result()
         if target.valid is True:
-            return np.array([target.x, target.y, target.z, 0.0, 0.0])
+            return np.array([target.x, target.y, target.z])
         else:
             self.get_logger().error('Invalid target')
             return None
@@ -206,7 +216,19 @@ class ControllerMPC(Node):
         else:
             self.get_logger().error('Invalid skin_entry')
             return None
-        
+
+    # Get tip (blocking service request)
+    def get_tip(self):
+        request = GetPose.Request()
+        future = self.tip_service_client.call_async(request)
+        rclpy.spin_until_future_complete(self, future)
+        tip = future.result()
+        if tip.valid is True:
+            return np.array([tip.x, tip.y, tip.z, tip.qw, tip.qx, tip.qy, tip.qz])
+        else:
+            self.get_logger().error('Invalid tip')
+            return None
+
     # Update stage (non blocking service request)
     def update_stage(self):
         request = GetPoint.Request()
@@ -258,6 +280,7 @@ class ControllerMPC(Node):
                 q = np.array([tip.qw, tip.qx, tip.qy, tip.qz])
                 angles = get_angles(q)
                 self.tip = np.array([tip.x, tip.y, tip.z, angles[0],angles[1]])
+                self.tip_pose = np.array([tip.x, tip.y, tip.z, tip.qw, tip.qx, tip.qy, tip.qz])
                 self.wait_tip = False
             else:
                 self.get_logger().error('Invalid tip pose')
@@ -352,13 +375,12 @@ class ControllerMPC(Node):
                 y_hat0 = np.copy(y_hat[k])
                 u_hat0 = np.copy(u_hat[k])
 
-            # Save prediction to mat file
+            # Save prediction to array
             self.get_logger().info('=====> step = %i' % self.step)
             self.get_logger().info('=====> H = %i' % H)
             self.get_logger().info('=====> u_hat = %s' % u_hat)
-            self.u_pred[self.step-1,0:H,:] = np.copy(u_hat)
-            self.y_pred[self.step-1,0:H,:] = np.copy(y_hat)
-            # savemat(self.filename, {'u_pred':self.u_pred, 'y_pred':self.y_pred})
+            self.u_pred[0:H,:,self.step-1] = np.copy(u_hat)
+            self.y_pred[0:H,:,self.step-1] = np.copy(y_hat)
 
             #This considers only final tip and target
             tg_xz = np.array([self.goal[0],self.goal[2],self.goal[3],self.goal[4]]) # Build target without depth
@@ -385,7 +407,7 @@ class ControllerMPC(Node):
             u_hat = np.tile(u0, (H,1))   # Initial control guess using last cmd value (vector with remaining horizon size)
             
             # Initial objective
-            # self.get_logger().info('Initial SSE Objective: %f' % (objective(u_hat)))  # calculate cost function with initial guess
+            self.get_logger().info('Initial SSE Objective: %f' % (objective(u_hat)))  # calculate cost function with initial guess
 
             # MPC calculation
             start_time = time.time()
@@ -420,8 +442,8 @@ class ControllerMPC(Node):
             exp_err = expected_error(u)
             self.get_logger().info('Expected final control error: (%f, %f, %f, %f) ' % (exp_err[0], exp_err[1], exp_err[2], exp_err[3]))
 
-        else:   # Finished all insertion steps
-            self.get_logger().info('No more MPC steps')
+        else:   # Finished all MPC steps
+            self.get_logger().warn('Last MPC step')
             step_depth = self.skin_entry[1] + self.insertion_step*self.step
             self.cmd[0] = self.stage[0]
             self.cmd[1] = min(self.target[1], step_depth)
@@ -434,6 +456,18 @@ class ControllerMPC(Node):
                 %(u[0,0] - self.stage[0], u[0,1] - self.stage[2]))    
         self.move_stage(self.cmd[0], self.cmd[1], self.cmd[2])
 
+        # Save .mat file
+        self.depth_data[:,:,self.step-1] = self.depth
+        self.stage_data[:,:,self.step-1] = self.stage
+        self.tip_data[:,:,self.step-1] = self.tip
+        self.tip_pose_data[:,:,self.step-1] = self.tip_pose
+        self.jacobian_data[:,:,self.step-1] = self.Jc
+        self.cmd_data[:,:,self.step-1] = self.cmd
+        savemat(self.filename, {'depth':self.depth_data, 'target':self.target, 'skin_entry':self.skin_entry,\
+                'stage': self.stage_data, 'tip': self.tip_data, 'jacobian': self.jacobian_data, 'tip_pose':self.tip_pose_data, \
+                'u_pred':self.u_pred, 'y_pred':self.y_pred, 'cmd':self.cmd_data})
+
+
 #### Action client functions ###################################################
 
     def move_stage(self, x, y, z):
@@ -443,7 +477,7 @@ class ControllerMPC(Node):
         goal_msg.x = float(x)
         goal_msg.y = float(y)
         goal_msg.z = float(z)
-        goal_msg.eps = 0.5 # in mm
+        goal_msg.eps = GALIL_ERR # in mm
         self.get_logger().debug('Move request: %.4f, %.4f, %.4f' % (x, y, z))
         # Wait for action server
         self.move_action_client.wait_for_server()        
@@ -476,11 +510,32 @@ class ControllerMPC(Node):
                 self.cmd[0], self.cmd[1], self.cmd[2], \
                 result.x, result.y, result.z)
             )
-            self.get_logger().warn('Hit SPACE for next step')
+            # Update stage
             self.stage = np.array([result.x, result.y, result.z])
+            self.depth = self.stage[1]
+            if ((self.target[1]-self.stage[1]) <= GALIL_ERR):
+                # Update needle tip
+                self.tip_pose = self.get_tip()
+                q = self.tip_pose[3:7]
+                angles = get_angles(q)
+                self.tip = np.array([self.tip_pose[0], self.tip_pose[1], self.tip_pose[2], angles[0],angles[1]])
+                # Save last values into .mat file
+                self.depth_data[:,:,self.step] = self.depth
+                self.stage_data[:,:,self.step] = self.stage
+                self.tip_data[:,:,self.step] = self.tip
+                self.tip_pose_data[:,:,self.step] = self.tip_pose
+                savemat(self.filename, {'depth':self.depth_data, 'target':self.target, 'skin_entry':self.skin_entry,\
+                        'stage': self.stage_data, 'tip': self.tip_data, 'jacobian': self.jacobian_data, 'tip_pose':self.tip_pose_data, \
+                        'u_pred':self.u_pred, 'y_pred':self.y_pred, 'cmd':self.cmd_data})
+        
+                self.get_logger().warn('Finished insertion')
+                self.get_logger().warn('Press Ctrl+C to finish.')
+                self.robot_idle = False
+            else:
+                self.get_logger().warn('Hit SPACE for next step')
+                self.robot_idle = True 
         elif result.error_code == 1:
             self.get_logger().info('Move failed: TIMETOUT')
-        self.robot_idle = True       # Set robot status to IDLE
 
 
 ########################################################################
