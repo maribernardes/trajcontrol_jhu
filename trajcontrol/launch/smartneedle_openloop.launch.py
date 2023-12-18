@@ -17,6 +17,12 @@ def generate_launch_description():
             description = "Insertion step size in mm"
     )
 
+    arg_num_blocks = DeclareLaunchArgument(
+            "num_blocks",
+            default_value = "0",
+            description = "Number of LEGO blocks"
+    )
+
     arg_filename = DeclareLaunchArgument(
             "filename",
             default_value = "ros2bag_openloop_"+ datetime.now().strftime("%Y_%m_%d-%H_%M_%S"),
@@ -40,6 +46,7 @@ def generate_launch_description():
         executable = "smart_needle_interface",
         parameters = [
             {"use_slicer": True},
+            {"num_blocks": LaunchConfiguration('num_blocks')}
         ]
     )
 
@@ -62,6 +69,7 @@ def generate_launch_description():
 
     # Include launch arguments
     ld.add_action(arg_insertion_step)
+    ld.add_action(arg_num_blocks)
     ld.add_action(arg_filename)
     
     ld.add_action(open_control)

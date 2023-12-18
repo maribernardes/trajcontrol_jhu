@@ -45,6 +45,9 @@ from .utils import *
 # '/needle/get_tip'             (smart_control_interfaces.srv.GetPose) - robot frame
 #
 #################################################################################
+
+LEGO_HEIGHT = 9.6
+
 class SmartNeedleInterface(Node):
 
 #### Node initialization###################################################
@@ -53,14 +56,16 @@ class SmartNeedleInterface(Node):
         super().__init__('smart_needle_interface')
 
         #Declare node parameters
-        self.declare_parameter('use_slicer', True) # Push shape to OpenIGTLink bridge
-        self.declare_parameter('needle_length', 200.0) # Needle length
+        self.declare_parameter('use_slicer', True)      # Push shape to OpenIGTLink bridge
+        self.declare_parameter('needle_length', 200.0)  # Needle length
+        self.declare_parameter('num_blocks', 0)         # Number of LEGO blocks
 
     #### Stored variables ###################################################
 
         # Node parameters
         self.push_to_bridge = self.get_parameter('use_slicer').get_parameter_value().bool_value
         self.needle_length = self.get_parameter('needle_length').get_parameter_value().double_value
+        self.num_blocks = self.get_parameter('num_blocks').get_parameter_value().integer_value
 
         self.zFrameToRobot = np.empty(shape=[0,7])      # zFrame to robot frame transform (from robot package)
         self.needleToRobot = np.empty(shape=[0,7])      # Needle to robot frame transform (initialized from initial_point)
@@ -143,6 +148,8 @@ class SmartNeedleInterface(Node):
             self.zFrameToRobot  = np.array(loadtxt(os.path.join(smart_template_share_directory,'files','zframe.csv'), delimiter=','))
         except IOError:
             self.get_logger().error('Could not find zframe.csv file')
+        # Adjust number of LEGO blocks
+            self.zFrameToRobot[2] = self.zFrameToRobot[2] - self.num_blocks*LEGO_HEIGHT
 
         # Initialize planning points
         initial_point = self.get_initial_point()

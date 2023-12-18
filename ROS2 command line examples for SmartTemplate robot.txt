@@ -62,7 +62,7 @@ OBS:
 
 - Use SPACE to signal a new step. 
 _______________________________________________________________________________________
-4) Launch Smart Needle experiment (mpc control TO BE INCLUDED)
+4) Launch Smart Needle experiment (Open-loop control)
 
 ***ROS2 computer***
 
@@ -79,7 +79,8 @@ ros2 launch smart_template robot.launch.py sim_level:=2
 ros2 run smart_template keypress
 
 *Launch trajcontrol packages
-ros2 launch trajcontrol smartneedle_openloop.launch.py
+ros2 launch trajcontrol smartneedle_openloop.launch.py num_blocks:=0 insertion_step:=5.0 filename:=openloop_1 | tee -a openopenloop_1.log
+=> Follow terminal instructions
 
 OBS: 
 - use_slicer argument is optional (default=False)
@@ -95,9 +96,50 @@ Step 1: ZFrameRegistrationROI module (IGT)
 Step 2: Open SmartNeedle module (IGT)
     *Set zFrameTransform
     *Set IP and Port and start client
-    *Select ENTRY and TARGET points
+    *Select TARGET and ENTRY points
     <WAIT>
+Step 3: When requested by ROS, hit "Send planned points"
+Step 4: At end of insertion, hit "Save copy" to store a copy of the nodes
 
+_______________________________________________________________________________________
+5) Launch Smart Needle experiment (MPC control)
+
+***ROS2 computer***
+
+*Launch SmartNeedle packages
+ros2 launch trajcontrol jhu_needle.launch.py 
+ros2 run hyperion_interrogator calibrate_sensors --ros-args -r __ns:=/needle
+
+*Launch igtl_bridge server to 3DSlicer
+ros2 launch ros2_igtl_bridge bridge.launch.py
+<CONFIGURE 3DSLICER NOW - see bellow>
+
+*Launch SmartTemplate packages
+ros2 launch smart_template robot.launch.py sim_level:=2 
+ros2 run smart_template keypress
+
+*Launch trajcontrol packages
+ros2 launch trajcontrol smartneedle_mpc.launch.py num_blocks:=0 insertion_step:=5.0 filename:=mpc_1 | tee -a mpc_1.log
+=> Follow terminal instructions
+
+OBS: 
+- use_slicer argument is optional (default=False)
+- insertion_length argument is optional when use_slicer is False (default=10.0). 
+    When use_slicer=True, insertion_length is set by target
+- Use numkeyboard arrows to move robot in horizontal and vertical directions. 
+- Use ENTER for needle insertion and SPACE for needle retraction.
+
+***3DSlicer***
+Open Slicer (using version 5.3)
+Step 1: ZFrameRegistrationROI module (IGT) 
+    *Get zFrame registration
+Step 2: Open SmartNeedle module (IGT)
+    *Set zFrameTransform
+    *Set IP and Port and start client
+    *Select TARGET and ENTRY points
+    <WAIT>
+Step 3: When requested by ROS, hit "Send planned points"
+Step 4: At end of insertion, hit "Save copy" to store a copy of the nodes
 _______________________________________________________________________________________
 
 EXTRAS:
@@ -114,6 +156,7 @@ ros2 topic hz topic_name
 C) Shutdown scripts (pkill of all launched nodes):
 For needle: ./needle_kill.sh
 For control: ./control_kill.sh
+For robot: ./robot_kill.sh
 
 D) Kill zoombie nodes (Example with igtl_bridge server)
 pkill -f -9 igtl_bridge 
