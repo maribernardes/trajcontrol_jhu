@@ -27,6 +27,7 @@ def generate_launch_description():
     manual_control = Node(
         package = "trajcontrol",
         executable = "controller_manual_smart",
+        emulate_tty = True,
         parameters = [
             {"lateral_step": LaunchConfiguration('lateral_step')},
             {"insertion_step": LaunchConfiguration('insertion_step')},
