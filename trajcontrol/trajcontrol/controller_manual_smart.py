@@ -110,10 +110,10 @@ class ControllerManualSmart(Node):
             elif (msg.data == 56): # move up
                 z = z + self.lateral_step
                 self.move_stage(x, y, z) 
-            elif (msg.data == 10): # insert one step
+            elif (msg.data == 43): # insert one step
                 y = y + self.insertion_step
                 self.move_stage(x, y, z) 
-            elif (msg.data == 32): # retract one step
+            elif (msg.data == 45): # retract one step
                 y = y - self.insertion_step
                 self.move_stage(x, y, z) 
             # Send command service
