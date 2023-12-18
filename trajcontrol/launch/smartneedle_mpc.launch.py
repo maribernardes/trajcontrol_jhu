@@ -11,6 +11,12 @@ def generate_launch_description():
 
     ld = LaunchDescription()
 
+    arg_insertion_step = DeclareLaunchArgument(
+            "insertion_step",
+            default_value = "5.0",
+            description = "Insertion step size in mm"
+    )
+
     arg_num_blocks = DeclareLaunchArgument(
             "num_blocks",
             default_value = "0",
@@ -58,7 +64,7 @@ def generate_launch_description():
         emulate_tty = True,
         parameters = [
             {"lateral_step": 1.0},
-            {"insertion_step": 5.0},
+            {"insertion_step": LaunchConfiguration('insertion_step')},
         ]
     )
 
@@ -68,6 +74,7 @@ def generate_launch_description():
     )
 
     # Include launch arguments
+    ld.add_action(arg_insertion_step)
     ld.add_action(arg_num_blocks)
     ld.add_action(arg_filename)
     

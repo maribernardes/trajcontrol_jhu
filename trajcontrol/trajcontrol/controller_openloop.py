@@ -3,6 +3,7 @@ import numpy as np
 import time
 import math
 import quaternion
+import os
 
 from std_msgs.msg import Int8
 from rclpy.node import Node
@@ -14,7 +15,9 @@ from smart_control_interfaces.srv import GetPoint, GetPose
 
 from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
 from rclpy.executors import MultiThreadedExecutor
+from scipy.io import savemat
 
+from ament_index_python.packages import get_package_share_directory
 from functools import partial
 from .utils import get_angles
 
@@ -41,6 +44,8 @@ from .utils import get_angles
 #
 ##########################################################################
 
+GALIL_ERR = 0.5
+
 class ControllerOpenLoop(Node):
 
     def __init__(self):
@@ -48,13 +53,16 @@ class ControllerOpenLoop(Node):
 
         #Declare node parameters
         self.declare_parameter('insertion_step', 10.0)          # Insertion step parameter
+        self.declare_parameter('filename', 'openloop_data')    # Name of file where data values are saved
 
     #### Stored variables ###################################################
 
         # Stored values
         self.skin_entry = np.empty(shape=[3,0])    # Stage position after experiment initialization
         self.target = np.empty(shape=[3,0])        # Planned target point
+        self.goal = np.empty(shape=[0,5])        # Control goal [target_x, target_y, _target_z, 0.0, 0.0]
 
+        self.tip_pose = np.empty(shape=[0,7])   # Current tip pose   [x, y, z, qw, qx, qy, qz] in robot frame
         self.tip = np.empty(shape=[0,5])        # Current tip input  [x, y, z, angle_h, angle_v]
         self.stage = np.empty(shape=[0,3])      # Current base input [x, y, z]
         self.cmd = np.empty(shape=[0,3])        # Control output to the robot stage
@@ -64,6 +72,7 @@ class ControllerOpenLoop(Node):
 
         self.wait_stage = False       # Flag to wait for tip value
         self.wait_tip = False         # Flag to wait for base value
+        self.wait_finish = False      # Flag to wait for end of insertion
         self.robot_idle = False       # Flag for move robot
 
     #### Action/service clients ###################################################
@@ -110,10 +119,29 @@ class ControllerOpenLoop(Node):
 
         self.insertion_step = self.get_parameter('insertion_step').get_parameter_value().double_value
 
+        # Set .mat filename and path
+        trajcontrol_share_directory = get_package_share_directory('trajcontrol') 
+        self.filename = os.path.join(trajcontrol_share_directory,'data',self.get_parameter('filename').get_parameter_value().string_value + '.mat') #String with full path to file
+        self.get_logger().info('Saving experiment data to %s' %self.filename)
+        
         # Initialize skin_entry and target
         self.skin_entry = self.get_skin_entry()     # get_skin is a blocking service request
-        self.target = self.get_target()     # get_skin is a blocking service request
+        self.target = self.get_target()             # get_target is a blocking service request
+        self.goal = np.array([self.target[0], self.target[1], self.target[2], 0.0, 0.0])
         self.robot_idle = True
+
+        # Define number of insertion steps
+        self.insertion_length = self.target[1] - self.skin_entry[1]
+        self.ns = math.ceil(self.insertion_length/self.insertion_step)
+        self.get_logger().info('\nInsertion length: %.4fmm\nInsertion step: %.4fmm \
+                               \nTotal insertion: %i steps' %(self.insertion_length, self.insertion_step, self.ns))
+
+        # Experiment data (save to .mat file)
+        self.depth_data = np.zeros((1, 1, 0))     # Insertion depth before control action
+        self.stage_data = np.zeros((1, 3, 0))     # Stage input before control action
+        self.tip_data = np.zeros((1, 5, 0))       # Tip input before control action
+        self.tip_pose_data = np.zeros((1, 7, 0))  # Tip pose before control action
+        self.cmd_data = np.zeros((1, 3, 0))         # Step control action
 
     #### Subscribed topics ###################################################
 
@@ -142,6 +170,33 @@ class ControllerOpenLoop(Node):
         self.cmd = np.array([x,y,z])
         # Send to stage
         self.move_stage(x, y, z) 
+        # Save .mat file
+        self.depth_data = np.dstack((self.depth_data , self.depth))
+        self.stage_data = np.dstack((self.stage_data , self.stage))
+        self.tip_data = np.dstack((self.tip_data , self.tip))
+        self.tip_pose_data = np.dstack((self.tip_pose_data , self.tip_pose))
+        self.cmd_data = np.dstack((self.cmd_data , self.cmd))
+        savemat(self.filename, {'depth':self.depth_data, 'target':self.target, 'skin_entry':self.skin_entry,\
+                'stage': self.stage_data, 'tip': self.tip_data, 'tip_pose':self.tip_pose_data, 'cmd':self.cmd_data})
+
+    def finish_insertion(self):
+        # Save last values into .mat file
+        self.depth_data = np.dstack((self.depth_data , self.depth))
+        self.stage_data = np.dstack((self.stage_data , self.stage))
+        self.tip_data = np.dstack((self.tip_data , self.tip))
+        self.tip_pose_data = np.dstack((self.tip_pose_data , self.tip_pose))
+        error = self.tip - self.goal
+        savemat(self.filename, {'depth':self.depth_data, 'target':self.target, 'skin_entry':self.skin_entry,\
+                'stage': self.stage_data, 'tip': self.tip_data, 'tip_pose':self.tip_pose_data, 'cmd':self.cmd_data})
+        # Print last values
+        self.get_logger().info('\n****** FINAL ******\nTarget: (%f, %f, %f)\nTip: (%f, %f, %f / %f, %f, %f, %f) \
+            \nError: (%f, %f, %f / %f (%f deg), %f (%f deg))\nStage: (%f, %f, %f)\n*********************' \
+            %(self.target[0], self.target[1], self.target[2],\
+            self.tip_pose[0],self.tip_pose[1], self.tip_pose[2], self.tip_pose[3], self.tip_pose[4], self.tip_pose[5], self.tip_pose[6],\
+            error[0], error[1], error[2], error[3], math.degrees(error[3]), error[4], math.degrees(error[4]),\
+            self.stage[0], self.stage[1], self.stage[2])
+        )
+        self.get_logger().warn('Press Ctrl+C to finish')
 
 #### Listening callbacks ###################################################
 
@@ -153,6 +208,9 @@ class ControllerOpenLoop(Node):
                 self.next_step()
             else:
                 self.get_logger().info('Motion not available')
+        elif (msg.data == 10):
+            if (self.wait_finish is True):
+                self.update_tip()
 
 #### Service client functions ###################################################
 
@@ -222,12 +280,15 @@ class ControllerOpenLoop(Node):
                 self.get_logger().info('Tip q (robot) = %s' %q)
                 angles = get_angles(q)
                 self.tip = np.array([tip.x, tip.y, tip.z, angles[0],angles[1]])
+                self.tip_pose = np.array([tip.x, tip.y, tip.z, tip.qw, tip.qx, tip.qy, tip.qz])
                 self.wait_tip = False
             else:
                 self.get_logger().error('Invalid tip pose')
         except Exception as e:
             self.get_logger().error('Tip call failed: %r' %(e,))
-        if (self.wait_stage is False) and (self.wait_tip is False) and (self.robot_idle is True):
+        if (self.wait_finish is True):
+            self.finish_insertion()
+        elif (self.wait_stage is False) and (self.wait_tip is False) and (self.robot_idle is True):
             self.move_step()    
 
 #### Action client functions ###################################################
@@ -240,7 +301,7 @@ class ControllerOpenLoop(Node):
         goal_msg.x = float(x)
         goal_msg.y = float(y)
         goal_msg.z = float(z)
-        goal_msg.eps = 0.5 # in mm
+        goal_msg.eps = GALIL_ERR # in mm
         self.get_logger().debug('Move request: %.4f, %.4f, %.4f' % (x, y, z))
         # Wait for action server
         self.move_action_client.wait_for_server()        
@@ -260,24 +321,31 @@ class ControllerOpenLoop(Node):
         result = future.result().result
         status = future.result().status
         if status == GoalStatus.STATUS_SUCCEEDED:
-            error = self.target - self.tip[0:3]
+            error = self.tip - self.goal
             # Print values
-            self.get_logger().info('\n****** STEP #%i ******\nInsertion depth: %f\nTarget: (%f, %f, %f)\nTip: (%f, %f, %f)\
+            self.get_logger().info('\n****** STEP #%i ******\nInsertion depth: %f\nTarget: (%f, %f, %f)\nTip: (%f, %f, %f / %f, %f, %f, %f)\
                 \nError: (%f, %f, %f / %f (%f deg), %f (%f deg))\nStage: (%f, %f, %f)\nCmd: (%f, %f, %f)\
                 \nReached: (%.4f, %.4f, %.4f)\n*********************' \
                 %(self.step, self.depth, \
                 self.target[0], self.target[1], self.target[2],\
-                self.tip[0],self.tip[1], self.tip[2],\
-                error[0], error[1], error[2], self.tip[3], math.degrees(self.tip[3]), self.tip[4], math.degrees(self.tip[4]),\
+                self.tip_pose[0],self.tip_pose[1], self.tip_pose[2], self.tip_pose[3], self.tip_pose[4], self.tip_pose[5], self.tip_pose[6],\
+                error[0], error[1], error[2], error[3], math.degrees(error[3]), error[4], math.degrees(error[4]),\
                 self.stage[0], self.stage[1], self.stage[2],\
                 self.cmd[0], self.cmd[1], self.cmd[2], \
                 result.x, result.y, result.z)
             )
-            self.get_logger().warn('Hit SPACE for next step')
+            # Update stage
             self.stage = np.array([result.x, result.y, result.z])
+            self.depth = self.stage[1] - self.skin_entry[1]
+            if ((self.target[1]-self.tip[1]) <= (self.insertion_step+GALIL_ERR)):
+                self.robot_idle = False
+                self.wait_finish = True
+                self.get_logger().warn('End of insertion. Hit ENTER when needle is updated')
+            else:
+                self.robot_idle = True 
+                self.get_logger().warn('Hit SPACE for next step')
         elif result.error_code == 1:
             self.get_logger().info('Move failed: TIMETOUT')
-        self.robot_idle = True       # Set robot status to IDLE
 
 ########################################################################
 

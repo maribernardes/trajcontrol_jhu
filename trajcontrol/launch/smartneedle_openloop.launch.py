@@ -13,7 +13,7 @@ def generate_launch_description():
 
     arg_insertion_step = DeclareLaunchArgument(
             "insertion_step",
-            default_value = "10.0",
+            default_value = "5.0",
             description = "Insertion step size in mm"
     )
 
