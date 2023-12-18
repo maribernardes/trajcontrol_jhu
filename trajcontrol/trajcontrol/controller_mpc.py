@@ -526,6 +526,8 @@ class ControllerMPC(Node):
                 self.cmd[0], self.cmd[1], self.cmd[2], \
                 result.x, result.y, result.z)
             )
+            #TODO: Include some waiting for needle to be updated to check the final error and decide if last step
+            # Currently we don't wait and check if error previous to step is smaller than one insertion_step + controller error
             # Update stage
             self.stage = np.array([result.x, result.y, result.z])
             self.depth = self.stage[1] - self.skin_entry[1]
