@@ -473,11 +473,11 @@ class ControllerMPC(Node):
         # Warning for control saturation
         if (self.cmd[0] == self.skin_entry[0]+SAFE_LIMIT):
             self.get_logger().warn('Control saturation in +X')
-        elif (self.cmd[0] == self.skin_entry[0]-SAFE_LIMIT):
+        if (self.cmd[0] == self.skin_entry[0]-SAFE_LIMIT):
             self.get_logger().warn('Control saturation in -X')    
-        elif (self.cmd[2] == self.skin_entry[2]+SAFE_LIMIT):
+        if (self.cmd[2] == self.skin_entry[2]+SAFE_LIMIT):
             self.get_logger().warn('Control saturation in +Z') 
-        elif (self.cmd[2] == self.skin_entry[2]-SAFE_LIMIT):
+        if (self.cmd[2] == self.skin_entry[2]-SAFE_LIMIT):
             self.get_logger().warn('Control saturation in -Z')     
 
         # Save .mat file
