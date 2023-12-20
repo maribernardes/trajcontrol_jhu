@@ -245,7 +245,7 @@ class Planning(Node):
         result = future.result().result
         status = future.result().status
         if status == GoalStatus.STATUS_SUCCEEDED:
-            self.get_logger().info('Goal reached: %.4f, %.4f, %.4f' %(result.x, result.y, result.z))
+            self.get_logger().debug('Goal reached: %.4f, %.4f, %.4f' %(result.x, result.y, result.z))
             self.stage = np.array([result.x, result.y, result.z])
             # Set robot initial point
             if (self.initial_point.size == 0):
@@ -257,7 +257,7 @@ class Planning(Node):
                 self.send_cmd(self.skin_entry[0], self.skin_entry[1], self.skin_entry[2])
             else:
                 # Activate planning service servers
-                self.get_logger().info('Needle at skin_entry: %s' %(self.skin_entry)) 
+                self.get_logger().info('Robot actual position at skin_entry: %.4f, %.4f, %.4f' %(result.x, result.y, result.z)) 
                 self.skin_entry_server = self.create_service(GetPoint, '/planning/get_skin_entry', self.get_skin_entry_callback)
                 self.target_server = self.create_service(GetPoint, '/planning/get_target', self.get_target_callback)
                 self.initial_point_server = self.create_service(GetPoint, '/planning/get_initial_point', self.get_initial_point_callback)

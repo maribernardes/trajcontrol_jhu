@@ -36,7 +36,7 @@ def generate_launch_description():
     )
 
     # Use planning interface
-    # air_gap is not used because use_slicer is True
+    # air_gap is used because use_slicer is False
     planning= Node(
         package = "trajcontrol",
         executable = "planning",
@@ -52,7 +52,7 @@ def generate_launch_description():
         package = "trajcontrol",
         executable = "smart_needle_interface",
         parameters = [
-            {"use_slicer": False},
+            {"use_slicer": True},
         ]
     )
 

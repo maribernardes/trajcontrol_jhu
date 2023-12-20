@@ -108,11 +108,11 @@ class Estimator(Node):
             trajcontrol_share_directory = get_package_share_directory('trajcontrol')
             try:
                 savetxt(os.path.join(trajcontrol_share_directory,'files','jacobian.csv'), asarray(self.J), delimiter=',')
-                self.get_logger().info('Save Jacobian transform\n J = %s' %(self.J))
             except IOError:
                 self.get_logger().error('Could NOT save Jacobian transform')
-        else:
-            self.get_logger().info('Jc = %s' %(self.J))
+        self.get_logger().info('deltaX = [%.4f, %.4f, %.4f], deltaZ = [%.4f, %.4f, %.4f, %.4f, %.4f]' \
+                               %(deltaX[0],deltaX[1],deltaX[2], deltaZ[0],deltaZ[1],deltaZ[2],deltaZ[3],deltaZ[4]))
+        self.get_logger().info('Jc = %s' %(self.J))
         J_image_matrix = CvBridge().cv2_to_imgmsg(self.J)
         J_image_matrix.header.stamp = self.get_clock().now().to_msg()
         return J_image_matrix

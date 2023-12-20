@@ -9,7 +9,7 @@ ________________________________________________________________________________
 1) Launch robot in manual mode
 
 *Launch SmartTemplate packages
-ros2 launch smart_template robot.launch sim_level:=1
+ros2 launch smart_template robot.launch.py sim_level:=1
 ros2 run smart_template keypress
 
 *Launch trajcontrol packages

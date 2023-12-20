@@ -123,6 +123,10 @@ class ControllerRand(Node):
         # Request planning (initialized only one - no update implemented yet)
         self.skin_entry = self.get_skin_entry()
 
+        self.tip_pose = np.empty(shape=[0,7])    # Current tip pose   [x, y, z, qw, qx, qy, qz] in robot frame
+        self.tip = np.empty(shape=[0,5])         # Current tip input  [x, y, z, angle_h, angle_v]
+        self.stage = np.empty(shape=[0,3])       # Current base input [x, y, z]
+
         # # Define motion safety limits
         # limit_x = (float(self.skin_entry[0])-SAFE_LIMIT, float(self.skin_entry[0])+SAFE_LIMIT)
         # limit_z = (float(self.skin_entry[2])-SAFE_LIMIT, float(self.skin_entry[2])+SAFE_LIMIT)
@@ -155,7 +159,7 @@ class ControllerRand(Node):
     # A keyboard hotkey was pressed 
     def keyboard_callback(self, msg):
         if (msg.data == 32):
-            if (self.robot_idle is True):
+            if (self.robot_idle is True) and (self.skin_entry.size!=0):
                 self.get_logger().warn('Starting step #%i...' %(self.step+1))  
                 self.next_step()
             else:
@@ -226,6 +230,7 @@ class ControllerRand(Node):
                 q = np.array([tip.qw, tip.qx, tip.qy, tip.qz])
                 angles = get_angles(q)
                 self.tip = np.array([tip.x, tip.y, tip.z, angles[0],angles[1]])
+                self.tip_pose = np.array([tip.x, tip.y, tip.z,tip.qw, tip.qx, tip.qy, tip.qz])
                 self.wait_tip = False
             else:
                 self.get_logger().error('Invalid tip pose')

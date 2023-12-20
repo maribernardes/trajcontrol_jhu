@@ -9,7 +9,7 @@ from launch.actions import IncludeLaunchDescription, DeclareLaunchArgument
 from launch.substitutions import PythonExpression, LocalSubstitution, TextSubstitution, PathJoinSubstitution
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 
-pkg_hyperion_interrogator = get_package_share_directory('hyperion_interrogator')
+pkg_hyperion_interrogator  = get_package_share_directory('hyperion_interrogator')
 pkg_needle_shape_publisher = get_package_share_directory('needle_shape_publisher')
 
 # Determine numChs and numAAs from needleParamFile
@@ -46,7 +46,7 @@ def generate_launch_description():
         'interrogatorIP', 
         default_value = '10.0.0.55',
         description = "Interrogator IP" 
-        )
+    )
     
     num_signals_to_collect = 50
 
@@ -55,8 +55,9 @@ def generate_launch_description():
         PythonLaunchDescriptionSource(
         os.path.join(pkg_needle_shape_publisher, 'needle.launch.py')),
         launch_arguments = {
-            'needleParamFile': LaunchConfiguration('needleParamFile'),
-            'numSignals'     : TextSubstitution(text=str(num_signals_to_collect)),
+            'needleParamFile'                   : LaunchConfiguration(arg_params.name),
+            'numSignals'                        : TextSubstitution(text=str(num_signals_to_collect)),
+            'optimNeedleUpdateOrientationAirGap': TextSubstitution(text="False"),
         }.items()
     )
 
@@ -67,8 +68,11 @@ def generate_launch_description():
             PythonExpression([LaunchConfiguration('sim_level'), " == 1"])
         ),
         launch_arguments = {
-            'numCH': TextSubstitution(text=str(numCHs)), 
-            'numAA': TextSubstitution(text=str(numAAs))
+            'ip'             : LaunchConfiguration('interrogatorIP'),
+            'numCH'          : TextSubstitution(text=str(numCHs)), 
+            'numAA'          : TextSubstitution(text=str(numAAs)),
+            'numSamples'     : TextSubstitution(text=str(num_signals_to_collect)),
+            'needleParamFile': PathJoinSubstitution([pkg_needle_shape_publisher, 'needle_data', LaunchConfiguration(arg_params.name)]),
         }.items()
     )
 
@@ -79,8 +83,9 @@ def generate_launch_description():
             PythonExpression([LaunchConfiguration('sim_level'), " == 2"])
         ),
         launch_arguments = {
-            'ip'        : LaunchConfiguration('interrogatorIP'),
-            'numSamples': TextSubstitution(text=str(num_signals_to_collect)),
+            'ip'             : LaunchConfiguration('interrogatorIP'),
+            'numSamples'     : TextSubstitution(text=str(num_signals_to_collect)),
+            'needleParamFile': PathJoinSubstitution([pkg_needle_shape_publisher, 'needle_data', LaunchConfiguration(arg_params.name)]),
         }.items()
     )
 

@@ -361,16 +361,16 @@ class ControllerMPC(Node):
             ## Minimization objectives
             # Objective 1: Trajectory error (x/z position and angles)
             tg_xz = np.tile([self.goal[0],self.goal[2],self.goal[3],self.goal[4]],(H,1))    # Build target without depth and with angles
-            y_hat_xz = np.array([y_hat[:,0],y_hat[:,2],y_hat[:,3],y_hat[:,4]]).T                    # Build tip prediction without depth
+            y_hat_xz = np.array([y_hat[:,0],y_hat[:,2],y_hat[:,3],y_hat[:,4]]).T            # Build tip prediction without depth
             err2 = np.dot(np.power(y_hat_xz-tg_xz,2), np.array([1.0, 1.0, 3.5, 3.5]))
             obj1 = np.matmul(np.ones(H),err2)
-            # Objective 2: delta at the base
-            u_temp = np.vstack((np.copy([self.stage[0],self.stage[2]]), u_hat))
-            delta_u_hat = np.diff(u_temp, axis=0)
-            obj2 = np.linalg.norm(delta_u_hat)          # Delta_u
-            # Combine both objectives
-            obj = 1.0*obj1 + 0.0*obj2
-            return obj 
+            # # Objective 2: delta at the base
+            # u_temp = np.vstack((np.copy([self.stage[0],self.stage[2]]), u_hat))
+            # delta_u_hat = np.diff(u_temp, axis=0)
+            # obj2 = np.linalg.norm(delta_u_hat)          # Delta_u
+            # # Combine both objectives
+            # obj = 1.0*obj1 + 0.0*obj2
+            return obj1 
 
         # Calculates expected insertion final error (from prediction)
         def expected_error(u_hat):
