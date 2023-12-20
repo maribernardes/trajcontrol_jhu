@@ -469,6 +469,16 @@ class ControllerMPC(Node):
                 %(u[0,0] - self.stage[0], u[0,1] - self.stage[2]))    
         self.move_stage(self.cmd[0], self.cmd[1], self.cmd[2])
 
+        # Warning for control saturation
+        if (self.cmd[0] == self.skin_entry[0]+SAFE_LIMIT):
+            self.get_logger().warn('Control saturation in +X')
+        elif (self.cmd[0] == self.skin_entry[0]-SAFE_LIMIT):
+            self.get_logger().warn('Control saturation in -X')    
+        elif (self.cmd[2] == self.skin_entry[2]+SAFE_LIMIT):
+            self.get_logger().warn('Control saturation in +Z') 
+        elif (self.cmd[2] == self.skin_entry[2]-SAFE_LIMIT):
+            self.get_logger().warn('Control saturation in -Z')     
+
         # Save .mat file
         self.depth_data = np.dstack((self.depth_data , self.depth))
         self.stage_data = np.dstack((self.stage_data , self.stage))
@@ -525,7 +535,8 @@ class ControllerMPC(Node):
                 self.stage[0], self.stage[1], self.stage[2],\
                 self.cmd[0], self.cmd[1], self.cmd[2], \
                 result.x, result.y, result.z)
-            )
+            )        
+
             #TODO: Include some waiting for needle to be updated to check the final error and decide if last step
             # Currently we don't wait and check if error previous to step is smaller than one insertion_step + controller error
             # Update stage
