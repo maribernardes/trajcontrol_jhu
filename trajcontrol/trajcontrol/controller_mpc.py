@@ -62,7 +62,7 @@ class ControllerMPC(Node):
         super().__init__('controller_mpc')
 
         #Declare node parameters
-        self.declare_parameter('H', 4)                          # Horizon size
+        self.declare_parameter('H', 8)                          # Horizon size
         self.declare_parameter('insertion_step', 10.0)          # Insertion step parameter
         self.declare_parameter('filename', 'mpc_data')    # Name of file where data values are saved
 
@@ -151,7 +151,6 @@ class ControllerMPC(Node):
         # Define number of control steps
         self.insertion_length = self.target[1] - self.skin_entry[1]
         self.ns = math.ceil(self.insertion_length/self.insertion_step)
-        self.get_logger().info('\nMPC horizon: H = %i\nInsertion length: %.4fmm\nTotal insertion: %i steps' %(self.H, self.insertion_length, self.ns))
 
         self.u_pred = np.zeros((self.H, 2)) # MPC Prediction
         self.y_pred = np.zeros((self.H, 5)) # MPC Prediction
@@ -160,6 +159,8 @@ class ControllerMPC(Node):
         limit_x = (float(self.skin_entry[0])-SAFE_LIMIT, float(self.skin_entry[0])+SAFE_LIMIT)
         limit_z = (float(self.skin_entry[2])-SAFE_LIMIT, float(self.skin_entry[2])+SAFE_LIMIT)
         self.limit = [limit_x, limit_z]
+        self.get_logger().info('\nMPC horizon: %i\nTotal insertion length: %.4fmm\nNumber of steps: %i\nControl saturation: %s' \
+            %(self.H, self.insertion_length, self.ns, self.limit))
 
         # Experiment data (save to .mat file)
         self.depth_data = np.zeros((1, 1, 0))       # Insertion depth before control action
