@@ -321,7 +321,7 @@ class ControllerMPC(Node):
         error = self.tip - self.goal
         savemat(self.filename, {'depth':self.depth_data, 'target':self.target, 'skin_entry':self.skin_entry,\
                 'stage': self.stage_data, 'tip': self.tip_data, 'jacobian': self.jacobian_data, 'tip_pose':self.tip_pose_data, \
-                'u_pred':self.u_pred, 'y_pred':self.y_pred, 'cmd':self.cmd_data})
+                'u_pred':self.u_pred_data, 'y_pred':self.y_pred_data, 'cmd':self.cmd_data})
         # Print last values
         self.get_logger().info('\n****** FINAL ******\nTarget: (%f, %f, %f)\nTip: (%f, %f, %f) \
             \nError: (%f, %f, %f / %f (%f deg), %f (%f deg))\nStage: (%f, %f, %f)\n*********************' \
@@ -492,7 +492,7 @@ class ControllerMPC(Node):
 
         savemat(self.filename, {'depth':self.depth_data, 'target':self.target, 'skin_entry':self.skin_entry,\
                 'stage': self.stage_data, 'tip': self.tip_data, 'jacobian': self.jacobian_data, 'tip_pose':self.tip_pose_data, \
-                'u_pred':self.u_pred, 'y_pred':self.y_pred, 'cmd':self.cmd_data})
+                'u_pred':self.u_pred_data, 'y_pred':self.y_pred_data, 'cmd':self.cmd_data})
 
 
 #### Action client functions ###################################################
