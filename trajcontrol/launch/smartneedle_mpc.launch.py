@@ -65,6 +65,7 @@ def generate_launch_description():
         parameters = [
             {"lateral_step": 1.0},
             {"insertion_step": LaunchConfiguration('insertion_step')},
+            {"filename": LaunchConfiguration('filename')},
         ]
     )
 
