@@ -23,7 +23,7 @@ Use ENTER for needle insertion and SPACE for needle retraction.
 Use R to retract the needle, H for homing the robot, and A to abort current motion (to be implemented in the robot).
 
 _______________________________________________________________________________________
-2) Launch OpenIGTLink demo (manual control) - TO BE UPDATED
+2) Launch OpenIGTLink demo (manual control) - TO BE UPDATED OR REMOVED
 
 ***3DSlicer***
 Open Slicer (using version 5.3)

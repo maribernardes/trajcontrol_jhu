@@ -20,7 +20,7 @@ def generate_launch_description():
     arg_num_blocks = DeclareLaunchArgument(
             "num_blocks",
             default_value = "0",
-            description = "Number of LEGO blocks"
+            description = "Number of aditional LEGO blocks"
     )
     
     arg_filename = DeclareLaunchArgument(
