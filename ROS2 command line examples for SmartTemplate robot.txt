@@ -141,6 +141,40 @@ Step 2: Open SmartNeedle module (IGT)
 Step 3: When requested by ROS, hit "Send planned points"
 Step 4: At end of insertion, hit "Save copy" to store a copy of the nodes
 _______________________________________________________________________________________
+6) Launch SmartTemplate validation (Sequence control)
+
+***ROS2 computer***
+
+*Launch igtl_bridge server to 3DSlicer
+ros2 launch ros2_igtl_bridge bridge.launch.py
+<CONFIGURE 3DSLICER NOW - see bellow>
+
+*Launch SmartTemplate packages
+ros2 launch smart_template robot.launch.py sim_level:=2 
+ros2 run smart_template keypress
+
+*Launch trajcontrol packages
+ros2 launch trajcontrol smartneedle_sequence.launch.py cube_size:=50.0 fiducial_offset:=20.0 filename:=sequence_1 | tee -a sequence_1.log
+=> Follow terminal instructions
+
+OBS: 
+- cube_size argument is optional (default=50.0)
+- fiducial_offset argument is optional (default=20.0)
+- filename argument is optional (default='sequence')
+- Use numkeyboard arrows to move robot in horizontal and vertical directions. 
+- Use ENTER for needle insertion and SPACE for needle retraction.
+
+***3DSlicer***
+Open Slicer (using version 5.3)
+Step 1: ZFrameRegistrationROI module (IGT) 
+    *Get zFrame registration
+Step 2: Open SmartNeedle module (IGT)
+    *Set zFrameTransform
+    *Set IP and Port and start client
+    *Select TARGET and ENTRY points to be the same and equal do the desired cube center
+    <WAIT>
+Step 3: When requested by ROS, hit "Send planned points"
+_______________________________________________________________________________________
 
 EXTRAS:
 
