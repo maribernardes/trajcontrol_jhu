@@ -25,7 +25,7 @@ def generate_launch_description():
     
     arg_filename = DeclareLaunchArgument(
             "filename",
-            default_value = "sequence",
+            default_value = "mpc",
             description = "Data logs filename prefix"
     )
 
