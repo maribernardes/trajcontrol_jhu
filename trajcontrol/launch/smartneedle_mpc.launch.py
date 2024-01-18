@@ -25,8 +25,13 @@ def generate_launch_description():
     
     arg_filename = DeclareLaunchArgument(
             "filename",
-            default_value = "ros2bag_mpc_"+ datetime.now().strftime("%Y_%m_%d-%H_%M_%S"),
-            description = "ros_bag filename"
+            default_value = "sequence",
+            description = "Data logs filename prefix"
+    )
+
+    arg_ros_filename = DeclareLaunchArgument(
+            'ros_filename', 
+            default_value = [LaunchConfiguration('filename'), '_'+datetime.now().strftime("%Y_%m_%d-%H_%M_%S")]
     )
 
     # Use planning interface
@@ -70,7 +75,7 @@ def generate_launch_description():
     )
 
     rosbag = ExecuteProcess(
-        cmd = ["ros2", "bag", "record", "-a", "-o", LaunchConfiguration('filename')],
+        cmd = ["ros2", "bag", "record", "-a", "-o", LaunchConfiguration('ros_filename')],
         output = 'screen'
     )
 
@@ -78,6 +83,7 @@ def generate_launch_description():
     ld.add_action(arg_insertion_step)
     ld.add_action(arg_num_blocks)
     ld.add_action(arg_filename)
+    ld.add_action(arg_ros_filename)
     
     ld.add_action(planning)
     ld.add_action(smart_needle_interface)
