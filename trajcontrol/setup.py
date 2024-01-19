@@ -28,6 +28,7 @@ setup(
             'planning = trajcontrol.planning:main',
             'estimator = trajcontrol.estimator:main',
             'controller_manual_smart = trajcontrol.controller_manual_smart:main',
+            'controller_cube = trajcontrol.controller_cube:main',
             'controller_sequence = trajcontrol.controller_sequence:main',
             'controller_openloop = trajcontrol.controller_openloop:main',
             'controller_rand = trajcontrol.controller_rand:main',

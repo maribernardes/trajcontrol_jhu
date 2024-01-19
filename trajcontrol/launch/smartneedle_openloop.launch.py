@@ -56,7 +56,6 @@ def generate_launch_description():
     )
 
     # Use open-loop controller
-    # to be replaced by controller_openloop
     open_control = Node(
         package = "trajcontrol",
         executable = "controller_openloop",

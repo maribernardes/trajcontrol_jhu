@@ -11,16 +11,16 @@ def generate_launch_description():
 
     ld = LaunchDescription()
 
-    arg_cube_size = DeclareLaunchArgument(
-            "cube_size",
-            default_value = "50.0",
-            description = "Size of cube in mm"
+    arg_insertion_step = DeclareLaunchArgument(
+            "insertion_step",
+            default_value = "5.0",
+            description = "Insertion step size in mm"
     )
 
-    arg_fiducial_offset = DeclareLaunchArgument(
-            "fiducial_offset",
-            default_value = "20.0",
-            description = "Fiducial offset from the guide"
+    arg_num_blocks = DeclareLaunchArgument(
+            "num_blocks",
+            default_value = "0",
+            description = "Number of aditional LEGO blocks"
     )
 
     arg_filename = DeclareLaunchArgument(
@@ -45,14 +45,24 @@ def generate_launch_description():
         ]
     )
 
+    # Use SmartNeedle interface
+    smart_needle_interface = Node(
+        package = "trajcontrol",
+        executable = "smart_needle_interface",
+        parameters = [
+            {"use_slicer": True},
+            {"num_blocks": LaunchConfiguration('num_blocks')}
+        ]
+    )
+
     # Use sequence controller
     sequence_control = Node(
         package = "trajcontrol",
         executable = "controller_sequence",
         emulate_tty = True,
         parameters = [
-            {"cube_size": LaunchConfiguration('cube_size')},
-            {"fiducial_offset": LaunchConfiguration('fiducial_offset')},
+            {"lateral_step": 1.0},
+            {"insertion_step": LaunchConfiguration('insertion_step')},
             {"filename": LaunchConfiguration('filename')},
         ]
     )
@@ -63,13 +73,14 @@ def generate_launch_description():
     )
 
     # Include launch arguments
-    ld.add_action(arg_cube_size)
-    ld.add_action(arg_fiducial_offset)
+    ld.add_action(arg_insertion_step)
+    ld.add_action(arg_num_blocks)
     ld.add_action(arg_filename)
     ld.add_action(arg_ros_filename)
     
     ld.add_action(sequence_control)
     ld.add_action(planning)
+    ld.add_action(smart_needle_interface)
 
     ld.add_action(rosbag)
     

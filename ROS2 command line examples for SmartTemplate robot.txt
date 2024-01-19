@@ -79,7 +79,7 @@ ros2 launch smart_template robot.launch.py sim_level:=2
 ros2 run smart_template keypress
 
 *Launch trajcontrol packages
-ros2 launch trajcontrol smartneedle_openloop.launch.py num_blocks:=0 insertion_step:=5.0 filename:=openloop_1 | tee -a openopenloop_1.log
+ros2 launch trajcontrol smartneedle_openloop.launch.py num_blocks:=0 insertion_step:=5.0 filename:=openloop_1 | tee -a openloop_1.log
 => Follow terminal instructions
 
 OBS: 
@@ -141,7 +141,7 @@ Step 2: Open SmartNeedle module (IGT)
 Step 3: When requested by ROS, hit "Send planned points"
 Step 4: At end of insertion, hit "Save copy" to store a copy of the nodes
 _______________________________________________________________________________________
-6) Launch SmartTemplate validation (Sequence control)
+6) Launch SmartTemplate validation (Cube control)
 
 ***ROS2 computer***
 
@@ -154,7 +154,7 @@ ros2 launch smart_template robot.launch.py sim_level:=2
 ros2 run smart_template keypress
 
 *Launch trajcontrol packages
-ros2 launch trajcontrol smartneedle_sequence.launch.py cube_size:=50.0 fiducial_offset:=20.0 filename:=sequence_1 | tee -a sequence_1.log
+ros2 launch trajcontrol smartneedle_sequence.launch.py cube_size:=50.0 fiducial_offset:=20.0 filename:=cube_1 | tee -a cube_1.log
 => Follow terminal instructions
 
 OBS: 
