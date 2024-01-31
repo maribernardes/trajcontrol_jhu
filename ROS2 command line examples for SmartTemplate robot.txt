@@ -154,7 +154,7 @@ ros2 launch smart_template robot.launch.py sim_level:=2
 ros2 run smart_template keypress
 
 *Launch trajcontrol packages
-ros2 launch trajcontrol smartneedle_sequence.launch.py cube_size:=50.0 fiducial_offset:=20.0 filename:=cube_1 | tee -a cube_1.log
+ros2 launch trajcontrol smartneedle_cube.launch.py cube_size:=30.0 fiducial_offset:=0.0 filename:=cube_AMIGO_1 | tee -a cube_AMIGO_1.log
 => Follow terminal instructions
 
 OBS: 
@@ -207,3 +207,6 @@ ros2 action send_goal /stage/move_stage smart_control_interfaces/action/MoveStag
 ros2 service call /stage/command smart_control_interfaces/srv/ControllerCommand "command: HOME"
 ros2 service call /stage/command smart_control_interfaces/srv/ControllerCommand "command: RETRACT"
 ros2 service call /stage/command smart_control_interfaces/srv/ControllerCommand "command: ABORT"
+
+From inside DICOM folder:
+sudo sh -c "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/smartneedle/Slicer-5.4.0-linux-amd64/lib/Slicer-5.4; /home/smartneedle/Slicer-5.4.0-linux-amd64/bin/storescp -v 104"
