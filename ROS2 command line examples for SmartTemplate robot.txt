@@ -210,3 +210,6 @@ ros2 service call /stage/command smart_control_interfaces/srv/ControllerCommand 
 
 From inside DICOM folder:
 sudo sh -c "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/smartneedle/Slicer-5.4.0-linux-amd64/lib/Slicer-5.4; /home/smartneedle/Slicer-5.4.0-linux-amd64/bin/storescp -v 104"
+
+Dell computer:
+sudo sh -c "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/Slicer5.3.0/lib/Slicer-5.3; /opt/Slicer5.3.0/bin/storescp -v 104"
