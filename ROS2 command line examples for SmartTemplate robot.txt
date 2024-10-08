@@ -23,7 +23,7 @@ Use ENTER for needle insertion and SPACE for needle retraction.
 Use R to retract the needle, H for homing the robot, and A to abort current motion (to be implemented in the robot).
 
 _______________________________________________________________________________________
-2) Launch OpenIGTLink demo (manual control) - TO BE UPDATED OR REMOVED
+2) Launch demo (manual control) - TO BE UPDATED OR REMOVED
 
 ***3DSlicer***
 Open Slicer (using version 5.3)
@@ -32,8 +32,12 @@ Open SmartNeedle module (IGT)
 
 ***ROS2 computer***
 
-ros2 launch trajcontrol openigtlink_demo_smart.launch.py
+*Launch smart_template packages
+ros2 launch smart_template robot.launch.py gui:=true sim_level:=2
 ros2 run smart_template keypress
+
+*Launch trajcontrol packages
+ros2 launch trajcontrol manual_smart.launch.py
 
 OBS: 
 Use numkeyboard arrows to move robot in horizontal and vertical directions. 

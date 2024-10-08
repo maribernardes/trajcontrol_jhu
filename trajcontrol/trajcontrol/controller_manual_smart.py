@@ -218,6 +218,8 @@ def main(args=None):
     controller_manual_smart.get_logger().warn('Use numerical keyboad to move template step-wise')
     controller_manual_smart.get_logger().warn('Arrows for lateral motion and +/- to insert/retract')
     controller_manual_smart.get_logger().warn('R = RETRACT, H = HOME, A = ABORT')
+    controller_manual_smart.get_logger().warn('Step size: Lateral = %.1f mm / Insertion = %.1f mm' % (controller_manual_smart.lateral_step,controller_manual_smart.insertion_step))
+    
 
     rclpy.spin(controller_manual_smart)
 
