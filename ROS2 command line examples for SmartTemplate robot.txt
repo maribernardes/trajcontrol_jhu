@@ -41,7 +41,7 @@ ros2 launch trajcontrol manual_smart.launch.py
 
 OBS: 
 Use numkeyboard arrows to move robot in horizontal and vertical directions. 
-Use ENTER for needle insertion and SPACE for needle retraction.
+Use + for needle insertion and - for needle retraction.
 _______________________________________________________________________________________
 
 3) Initialize Jacobian (uses rand controller)
