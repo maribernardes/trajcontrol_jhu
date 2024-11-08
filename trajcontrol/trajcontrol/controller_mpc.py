@@ -14,9 +14,9 @@ from action_msgs.msg import GoalStatus
 from geometry_msgs.msg import PoseStamped, PointStamped, Point, Quaternion, Pose
 from cv_bridge import CvBridge
 from sensor_msgs.msg import Image
-from smart_control_interfaces.srv import GetPoint, GetPose
+from smart_template_interfaces.srv import GetPoint, GetPose
 from trajcontrol_interfaces.srv import GetJacobian
-from smart_control_interfaces.action import MoveStage
+from smart_template_interfaces.action import MoveStage
 
 from scipy.optimize import minimize
 from scipy.io import savemat
@@ -42,14 +42,14 @@ from .utils import *
 # '/keyboard/key'           (std_msgs.msg.Int8)
 #
 # Service client:    
-# '/planning/get_skin_entry'    (smart_control_interfaces.srv.GetPoint)  - robot frame
-# '/planning/get_target'        (smart_control_interfaces.srv.GetPoint)  - robot frame
-# '/stage/get_position'         (smart_control_interfaces.srv.GetPoint)  - robot frame
-# '/needle/get_tip'             (smart_control_interfaces.srv.GetPose)   - robot frame
+# '/planning/get_skin_entry'    (smart_template_interfaces.srv.GetPoint)  - robot frame
+# '/planning/get_target'        (smart_template_interfaces.srv.GetPoint)  - robot frame
+# '/stage/get_position'         (smart_template_interfaces.srv.GetPoint)  - robot frame
+# '/needle/get_tip'             (smart_template_interfaces.srv.GetPose)   - robot frame
 # '/estimator/get_jacobian'     (trajcontrol_interfaces.srv.GetJacobian) - robot frame
 #
 # Action client:
-# 'stage/move'              (smart_control_interfaces.action.MoveStage) - robot frame
+# 'stage/move'              (smart_template_interfaces.action.MoveStage) - robot frame
 #
 ##########################################################################
 

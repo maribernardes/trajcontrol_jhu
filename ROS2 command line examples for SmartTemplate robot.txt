@@ -206,11 +206,11 @@ E) Save terminal log:
 ros2 launch trajcontrol smartneedle_openloop.launch.py | tee -a openloop.log
 
 F) SmartTemplate Action and Services:
-ros2 action send_goal /stage/move_stage smart_control_interfaces/action/MoveStage "{x: 10.0, z: 0.0, eps: 0.05}"
+ros2 action send_goal /stage/move smart_template_interfaces/action/MoveStage "{x: 10.0, 7: 0.0, z: 0.0, eps: 0.05}"
 
-ros2 service call /stage/command smart_control_interfaces/srv/ControllerCommand "command: HOME"
-ros2 service call /stage/command smart_control_interfaces/srv/ControllerCommand "command: RETRACT"
-ros2 service call /stage/command smart_control_interfaces/srv/ControllerCommand "command: ABORT"
+ros2 service call /stage/command smart_template_interfaces/srv/ControllerCommand "command: HOME"
+ros2 service call /stage/command smart_template_interfaces/srv/ControllerCommand "command: RETRACT"
+ros2 service call /stage/command smart_template_interfaces/srv/ControllerCommand "command: ABORT"
 
 From inside DICOM folder:
 sudo sh -c "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/smartneedle/Slicer-5.4.0-linux-amd64/lib/Slicer-5.4; /home/smartneedle/Slicer-5.4.0-linux-amd64/bin/storescp -v 104"

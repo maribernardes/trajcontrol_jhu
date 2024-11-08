@@ -10,8 +10,8 @@ from rclpy.node import Node
 from rclpy.action import ActionClient
 from action_msgs.msg import GoalStatus
 
-from smart_control_interfaces.action import MoveStage
-from smart_control_interfaces.srv import GetPoint, GetPose
+from smart_template_interfaces.action import MoveStage
+from smart_template_interfaces.srv import GetPoint, GetPose
 
 from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
 from rclpy.executors import MultiThreadedExecutor
@@ -34,13 +34,13 @@ from .utils import get_angles
 # '/keyboard/key'           (std_msgs.msg.Int8)
 #
 # Service client:    
-# '/planning/get_skin_entry' (smart_control_interfaces.srv.GetPoint) - robot frame
-# '/planning/get_target'     (smart_control_interfaces.srv.GetPoint) - robot frame
-# '/stage/get_position'      (smart_control_interfaces.srv.GetPoint) - robot frame
-# '/needle/get_tip'          (smart_control_interfaces.srv.GetPose) - robot frame
+# '/planning/get_skin_entry' (smart_template_interfaces.srv.GetPoint) - robot frame
+# '/planning/get_target'     (smart_template_interfaces.srv.GetPoint) - robot frame
+# '/stage/get_position'      (smart_template_interfaces.srv.GetPoint) - robot frame
+# '/needle/get_tip'          (smart_template_interfaces.srv.GetPose) - robot frame
 #
 # Action client:
-# 'stage/move'               (smart_control_interfaces.action.MoveStage) - robot frame
+# 'stage/move'               (smart_template_interfaces.action.MoveStage) - robot frame
 #
 ##########################################################################
 

@@ -9,7 +9,7 @@ from rclpy.node import Node
 from numpy import loadtxt
 from geometry_msgs.msg import PoseArray, PoseStamped, PointStamped, Quaternion, Point
 from ros2_igtl_bridge.msg import PointArray, String
-from smart_control_interfaces.srv import GetPose, GetPoint
+from smart_template_interfaces.srv import GetPose, GetPoint
 from functools import partial
 
 from numpy import loadtxt
@@ -38,11 +38,11 @@ from .utils import *
 # 'IGTL_POINT_OUT'              (ros2_igtl_bridge.msg.PointArray) - zFrame
 # 
 # Service client:    
-# '/planning/get_initial_point' (smart_control_interfaces.srv.GetPoint) - robot frame
-# '/planning/get_skin_entry'    (smart_control_interfaces.srv.GetPoint) - robot frame
+# '/planning/get_initial_point' (smart_template_interfaces.srv.GetPoint) - robot frame
+# '/planning/get_skin_entry'    (smart_template_interfaces.srv.GetPoint) - robot frame
 #
 # Service server:    
-# '/needle/get_tip'             (smart_control_interfaces.srv.GetPose) - robot frame
+# '/needle/get_tip'             (smart_template_interfaces.srv.GetPose) - robot frame
 #
 #################################################################################
 

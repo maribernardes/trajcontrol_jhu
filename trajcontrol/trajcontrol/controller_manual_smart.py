@@ -7,9 +7,9 @@ from rclpy.action import ActionClient
 from action_msgs.msg import GoalStatus
 
 from geometry_msgs.msg import PoseStamped, PointStamped
-from smart_control_interfaces.action import MoveStage
-from smart_control_interfaces.srv import ControllerCommand
-from smart_control_interfaces.srv import GetPoint, GetPose
+from smart_template_interfaces.action import MoveStage
+from smart_template_interfaces.srv import ControllerCommand
+from smart_template_interfaces.srv import GetPoint, GetPose
 
 from functools import partial
 
@@ -25,8 +25,8 @@ from functools import partial
 # '/stage/state/guide_pose'     (geometry_msgs.msg.PointStamped)  - robot frame
 #
 # Action/service client:
-# '/move_stage'             (smart_control_interfaces.action.MoveStage) - robot frame
-# '/command'                (smart_control_interfaces.action.MoveStage) - robot frame
+# '/move_stage'             (smart_template_interfaces.action.MoveStage) - robot frame
+# '/command'                (smart_template_interfaces.action.MoveStage) - robot frame
 # 
 #########################################################################
 

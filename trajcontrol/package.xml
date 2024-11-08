@@ -13,7 +13,7 @@
   <depend>python-transforms3d-pip</depend>
 
   <depend>ros2_igtl_bridge</depend>
-  <depend>smart_control_interfaces</depend>
+  <depend>smart_template_interfaces</depend>
   <depend>trajcontrol_interfaces</depend>
 
   <test_depend>ament_copyright</test_depend>

@@ -14,7 +14,7 @@
   <depend>action_msgs</depend>
   <depend>srv_msgs</depend>
   <depend>sensor_msgs</depend>
-  <depend>smart_control_interfaces</depend>
+  <depend>smart_template_interfaces</depend>
   
   <exec_depend>rosidl_default_runtime</exec_depend>
 

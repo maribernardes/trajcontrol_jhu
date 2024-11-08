@@ -11,8 +11,8 @@ from action_msgs.msg import GoalStatus
 from std_msgs.msg import Int8
 from geometry_msgs.msg import PoseArray, PoseStamped, PointStamped, Quaternion, Point
 from ros2_igtl_bridge.msg import PointArray
-from smart_control_interfaces.action import MoveStage
-from smart_control_interfaces.srv import GetPoint
+from smart_template_interfaces.action import MoveStage
+from smart_template_interfaces.srv import GetPoint
 
 from numpy import loadtxt
 from ament_index_python.packages import get_package_share_directory
@@ -42,7 +42,7 @@ from .utils import *
 # '/planning/get_initial_point'      (trajcontrol_interfaces.srv.GetPoint) - robot frame
 #
 # Action client:
-# 'stage/move'              (smart_control_interfaces.action.MoveStage) - robot frame
+# 'stage/move'              (smart_template_interfaces.action.MoveStage) - robot frame
 #
 #########################################################################
 
