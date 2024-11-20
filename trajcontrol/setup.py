@@ -30,6 +30,7 @@ setup(
             'controller_manual_smart = trajcontrol.controller_manual_smart:main',
             'controller_cube = trajcontrol.controller_cube:main',
             'controller_sequence = trajcontrol.controller_sequence:main',
+            'controller_step_openloop = trajcontrol.controller_step_openloop:main',
             'controller_openloop = trajcontrol.controller_openloop:main',
             'controller_rand = trajcontrol.controller_rand:main',
             'controller_mpc = trajcontrol.controller_mpc:main',

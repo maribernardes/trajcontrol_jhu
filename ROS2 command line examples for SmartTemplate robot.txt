@@ -5,8 +5,55 @@ colcon build --cmake-args -DOpenIGTLink_DIR:PATH=/home/smartneedle/OpenIGTLink-b
 
 TO USE DEBUG MODE:
 --ros-args --log-level debug
+
+TO LAUNCH ROBOT
+
+*Launch SmartTemplate packages
+ros2 launch smart_template robot.launch.py sim_level:=1 gui:=true rviz:=true
+
+OBS: all arguments are optional 
+sim_level (default = 2): 1=virtual / 2=real (chooses if real robot or simulated)
+gui (default = true): true/false (load rqt plugin with user gui for commanding robot)
+rviz (default = false): true/false (load rviz for robot visualization)
+
 _______________________________________________________________________________________
-1) Launch robot in manual mode
+1) Launch insertion demo (stepwise openloop insertion - NO needle feedback)
+WHAT IT DOES?
+This demo receives the target and entry point (in ZFrame coordinates) through OpenIGTLink communication, 
+approaches the skin, and then perform step-wise insertions (no lateral motion, only insertion) according to the plan.
+It does not have needle tip feedback, assumes the needle performs perfect straight trajectory
+
+***ROS2 computer***
+
+*Launch igtl_bridge server to 3DSlicer
+ros2 launch ros2_igtl_bridge bridge.launch.py
+<CONFIGURE 3DSLICER NOW - see bellow>
+
+*Launch smart_template packages
+ros2 launch smart_template robot.launch.py gui:=true sim_level:=2
+ros2 run smart_template keypress
+    Use SPACE for next insertion step
+    Use ENTER to finalize insertion procedure
+
+*Launch trajcontrol packages
+ros2 launch trajcontrol step_openloop.launch.py
+
+***3DSlicer***
+Open Slicer (5.7 version compiled with local OpenSSL)
+
+Step 1: ZFrameRegistrationROI module (IGT) 
+    *Get zFrame registration
+Step 2: Open SmartNeedle module (IGT)
+    *Set zFrameTransform
+    *Set IP and Port and start client
+    *Select TARGET and ENTRY points
+    <WAIT>
+Step 3: When requested by ROS, hit "Send planned points"
+<PERFORMS INSERTION PROCEDURE according to the controller_step_openloop terminal instructions>
+Step 4: At end of insertion, hit "Save copy" to store a copy of the nodes
+
+_______________________________________________________________________________________
+1) Launch robot in manual mode - DEPRECATED
 
 *Launch SmartTemplate packages
 ros2 launch smart_template robot.launch.py sim_level:=1
@@ -21,27 +68,6 @@ insertion_step (default = 10.0 mm) and lateral_step (default = 1.0 mm) arguments
 Use numkeyboard arrows to move robot in horizontal and vertical directions. 
 Use ENTER for needle insertion and SPACE for needle retraction.
 Use R to retract the needle, H for homing the robot, and A to abort current motion (to be implemented in the robot).
-
-_______________________________________________________________________________________
-2) Launch demo (manual control) - TO BE UPDATED OR REMOVED
-
-***3DSlicer***
-Open Slicer (using version 5.3)
-Open SmartNeedle module (IGT)
-
-
-***ROS2 computer***
-
-*Launch smart_template packages
-ros2 launch smart_template robot.launch.py gui:=true sim_level:=2
-ros2 run smart_template keypress
-
-*Launch trajcontrol packages
-ros2 launch trajcontrol manual_smart.launch.py
-
-OBS: 
-Use numkeyboard arrows to move robot in horizontal and vertical directions. 
-Use + for needle insertion and - for needle retraction.
 _______________________________________________________________________________________
 
 3) Initialize Jacobian (uses rand controller)

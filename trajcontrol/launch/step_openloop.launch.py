@@ -48,7 +48,7 @@ def generate_launch_description():
     # Use open-loop controller
     open_control = Node(
         package = "trajcontrol",
-        executable = "controller_openloop",
+        executable = "controller_step_openloop",
         emulate_tty = True,
         parameters = [
             {"lateral_step": 1.0},
