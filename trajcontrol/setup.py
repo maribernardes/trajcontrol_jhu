@@ -26,6 +26,7 @@ setup(
     entry_points={
         'console_scripts': [
             'planning = trajcontrol.planning:main',
+            'targeting = trajcontrol.targeting:main',
             'estimator = trajcontrol.estimator:main',
             'controller_manual_smart = trajcontrol.controller_manual_smart:main',
             'controller_cube = trajcontrol.controller_cube:main',
